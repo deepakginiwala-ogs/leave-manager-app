@@ -1468,7 +1468,7 @@ function initCardShine() {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.getElementById('searchBar').focus(); }
     });
 
-    const GITHUB_TOKEN = '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';
+    const WORKER_BASE = 'https://leave-manager-proxy.deepak-giniwala.workers.dev';
     const REPO_OWNER = 'deepakginiwala-ogs';
     const REPO_NAME = 'team-data';
     const FILE_PATH = 'leaves.json';
@@ -2013,7 +2013,7 @@ function updateModalEmp(sel=null) {
 
     async function fetchCloudData() {
         try {
-            const pr = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${PROFILES_FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+            const pr = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${PROFILES_FILE_PATH}`);
             if (pr.ok) {
                 const pd = await pr.json();
                 profilesConfig = JSON.parse(atob(pd.content)).profiles || [];
@@ -2037,7 +2037,7 @@ function updateModalEmp(sel=null) {
         }
 
         try {
-            const t = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+            const t = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`);
             if (t.ok) {
                 const td = await t.json();
                 const tc = JSON.parse(atob(td.content));
@@ -2047,7 +2047,7 @@ function updateModalEmp(sel=null) {
         } catch(e) { console.error("Team Sync Error", e); }
 
         try {
-            const r = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+            const r = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`);
             if (r.ok) {
                 const d = await r.json();
                 const rawLeaves = JSON.parse(atob(d.content)).leaves || [];
@@ -2056,7 +2056,7 @@ function updateModalEmp(sel=null) {
         } catch(e) { console.error("Leaves Sync Error", e); }
 
         try {
-            const h = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${HOLIDAY_FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+            const h = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${HOLIDAY_FILE_PATH}`);
             if (h.ok) { const hd = await h.json(); const hc = JSON.parse(atob(hd.content)); if (Array.isArray(hc) && hc.length) holidaysArray = hc; }
         } catch(e) { console.error("Holidays Sync Error", e); }
 
@@ -2146,7 +2146,7 @@ async function syncTeamToCloud() {
     if (pass === null) return false;
     try {
         let sha = null;
-        const gf = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+        const gf = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`);
         if (gf.ok) {
             const fd = await gf.json();
             sha = fd.sha;
@@ -2161,9 +2161,9 @@ async function syncTeamToCloud() {
         const content = btoa(unescape(encodeURIComponent(JSON.stringify(teamData, null, 2))));
         const bodyData = {message: "Updated Team Data", content: content};
         if (sha) bodyData.sha = sha;
-        const r = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`, {
+        const r = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`, {
             method: 'PUT',
-            headers: {'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(bodyData)
         });
         if (r.ok) {
@@ -2184,7 +2184,7 @@ async function syncTeamToCloud() {
 async function pushTeamToCloud() {
     try {
         let sha = null;
-        const gf = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+        const gf = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`);
         if (gf.ok) { const fd = await gf.json(); sha = fd.sha; }
         if (currentProfile && !currentProfile.isAdmin && teamData.profiles[currentProfile.name]) {
             teamData.profiles[currentProfile.name] = {
@@ -2195,9 +2195,9 @@ async function pushTeamToCloud() {
         const content = btoa(unescape(encodeURIComponent(JSON.stringify(teamData, null, 2))));
         const bodyData = {message: "Updated Team Data", content: content};
         if (sha) bodyData.sha = sha;
-        const r = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`, {
+        const r = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${TEAM_FILE_PATH}`, {
             method: 'PUT',
-            headers: {'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(bodyData)
         });
         if (r.ok) { showToast("Record Updated Successfully", "success"); return true; }
@@ -2210,13 +2210,13 @@ async function pushTeamToCloud() {
         if (pass === null) return false;
         try {
             let sha = null;
-            const gf = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${HOLIDAY_FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+            const gf = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${HOLIDAY_FILE_PATH}`);
             if (gf.ok) { const fd = await gf.json(); sha = fd.sha; }
             const content = btoa(unescape(encodeURIComponent(JSON.stringify(holidaysArray, null, 2))));
             const bodyData = {message: "Updated Holiday Data", content: content};
             if (sha) bodyData.sha = sha;
-            const r = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${HOLIDAY_FILE_PATH}`, {
-                method: 'PUT', headers: {'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json'}, body: JSON.stringify(bodyData)
+            const r = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${HOLIDAY_FILE_PATH}`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData)
             });
             if (r.ok) { showToast("Record Updated Successfully", "success"); return true; }
             else { showToast("Sync Failed. Try again.", "error"); return false; }
@@ -2276,7 +2276,12 @@ function getSecurePassword() {
         if(!confirm(msg))return; const pass=await getSecurePassword(); if(pass===null){return;}
         const ids=new Set(invalid.map(l=>l.id)); leaves=leaves.filter(l=>!ids.has(l.id));
         document.getElementById('btnSaveMain').innerText="Cleaning...";
-        try{const gf=await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,{headers:{'Authorization':`token ${GITHUB_TOKEN}`}}); const fd=await gf.json(); const r=await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,{method:'PUT',headers:{'Authorization':`token ${GITHUB_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({message:"Cleanup: Removed corrupted records",content:btoa(JSON.stringify({leaves},null,2)),sha:fd.sha})}); if(r.ok){showToast(`${invalid.length} corrupted record(s) deleted.`);refresh();}else{showToast("Failed to sync", "error");await fetchCloudData();}}catch(e){showToast("Network error", "error");await fetchCloudData();}
+        try{
+            const gf=await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`);
+            const fd=await gf.json();
+            const r=await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:"Cleanup: Removed corrupted records",content:btoa(unescape(encodeURIComponent(JSON.stringify({leaves},null,2)))),sha:fd.sha})});
+            if(r.ok){showToast(`${invalid.length} corrupted record(s) deleted.`);refresh();}else{showToast("Failed to sync", "error");await fetchCloudData();}
+        }catch(e){showToast("Network error", "error");await fetchCloudData();}
         document.getElementById('btnSaveMain').innerHTML='<i data-lucide="plus"></i> Record Leave'; lucide.createIcons({nameAttr:'data-lucide'});
     }
 // ===== MULTI-TENANT: PROFILE MANAGEMENT =====
@@ -2284,13 +2289,13 @@ function getSecurePassword() {
     // Helper to sync specific files (Profiles, Team, Leaves)
     async function syncSpecificFile(path, data, message) {
         let sha = null;
-        const gf = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+        const gf = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`);
         if (gf.ok) { const fd = await gf.json(); sha = fd.sha; }
         const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
         const bodyData = { message: message, content: content };
         if (sha) bodyData.sha = sha;
-        const r = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`, {
-            method: 'PUT', headers: {'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json'}, body: JSON.stringify(bodyData)
+        const r = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData)
         });
         if (!r.ok) throw new Error("Sync failed");
     }
@@ -2448,12 +2453,12 @@ async function removeTeamMember() {
 if (!await pushTeamToCloud()) return;
         try {
             let leavesSha = null;
-            const gf = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+            const gf = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`);
             if (gf.ok) { const fd = await gf.json(); leavesSha = fd.sha; }
             if (leavesSha) {
                 const lc = btoa(unescape(encodeURIComponent(JSON.stringify({leaves}, null, 2))));
-                await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-                    method: 'PUT', headers: {'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json'},
+                await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ message: "Deleted member: " + name, content: lc, sha: leavesSha })
                 });
             }
@@ -2586,12 +2591,12 @@ if(prev && prev !== name){
         if (prev && prev !== name) {
             try {
                 let leavesSha = null;
-                const gf = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+                const gf = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`);
                 if (gf.ok) { const fd = await gf.json(); leavesSha = fd.sha; }
                 if (leavesSha) {
                     const leavesContent = btoa(unescape(encodeURIComponent(JSON.stringify({leaves}, null, 2))));
-                    await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-                        method: 'PUT', headers: {'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json'},
+                    await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
+                        method: 'PUT', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ message: "Renamed employee: " + prev + " -> " + name, content: leavesContent, sha: leavesSha })
                     });
                 }
@@ -3032,16 +3037,14 @@ function getEmployeeProfile(empName) {
     return "Unknown";
 }
 
-async function syncToCloud(){const p=await getSecurePassword();if(p===null){return false;}document.getElementById('btnSaveMain').innerHTML='<i data-lucide="loader-2" class="spin-icon"></i> Syncing...'; lucide.createIcons({nameAttr:'data-lucide'}); try{const gf=await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,{headers:{'Authorization':`token ${GITHUB_TOKEN}`}});const fd=await gf.json();const r=await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,{method:'PUT',headers:{'Authorization':`token ${GITHUB_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({message:"Authorized Update",content:btoa(JSON.stringify({leaves},null,2)),sha:fd.sha})});if(r.ok){showToast("Record Updated Successfully", "success");return true;}}catch(e){showToast("Sync Failed", "error");return false;}finally{document.getElementById('btnSaveMain').innerHTML='<i data-lucide="plus"></i> Record Leave'; lucide.createIcons({nameAttr:'data-lucide'});}}
-
     // ★ NEW: Pushes leaves to cloud WITHOUT re-prompting for password.
     // Used ONLY after authentication has already succeeded via getSecurePassword().
     async function pushLeavesToCloud(){
         document.getElementById('btnSaveMain').innerHTML='<i data-lucide="loader-2" class="spin-icon"></i> Syncing...'; lucide.createIcons({nameAttr:'data-lucide'});
         try{
-            const gf=await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,{headers:{'Authorization':`token ${GITHUB_TOKEN}`}});
-            const fd=await gf.json();
-            const r=await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,{method:'PUT',headers:{'Authorization':`token ${GITHUB_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({message:"Authorized Update",content:btoa(JSON.stringify({leaves},null,2)),sha:fd.sha})});
+            const gf=await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`);
+	    const fd=await gf.json();
+            const r=await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:"Authorized Update",content:btoa(unescape(encodeURIComponent(JSON.stringify({leaves},null,2)))),sha:fd.sha})});
             if(r.ok){showToast("Record Updated Successfully", "success");return true;}
             showToast("Sync Failed", "error"); return false;
         }catch(e){showToast("Sync Failed", "error");return false;}
@@ -3282,7 +3285,7 @@ function updateActiveFilterBadge() {
         document.getElementById('skeletonOverlay').classList.remove('hidden');
 
         try {
-            const pr = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${PROFILES_FILE_PATH}`, {headers: {'Authorization': `token ${GITHUB_TOKEN}`}});
+            const pr = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${PROFILES_FILE_PATH}`);
             if (pr.ok) {
                 const pd = await pr.json();
                 profilesConfig = JSON.parse(atob(pd.content)).profiles || [];
