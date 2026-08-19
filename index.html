@@ -379,6 +379,12 @@ select[multiple] { height: 100px; padding: 5px; }
 .multiselect-option:hover { background: rgba(99, 102, 241, 0.08); }
 .multiselect-option input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
 .multiselect-option.is-all { border-bottom: 1px solid var(--border); margin-bottom: 4px; padding-bottom: 10px; font-weight: 600; }
+.multiselect-search-wrap { position: sticky; top: 0; background: var(--card-bg); padding: 2px 2px 8px; z-index: 2; }
+.multiselect-search-input {
+    width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 12px; background: var(--bg-main); color: var(--text-main); font-family: 'Inter', sans-serif;
+}
+.multiselect-search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,0.12); }
 
         button {
             padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
@@ -1478,6 +1484,7 @@ function initCardShine() {
     let leaves = [];
     let activeView = 'dashboard';
     let selectedEmpFilter = ['All']; // ★ NEW: tracks custom multi-select checkbox state
+    let empMultiSelectSearchTerm = ''; // ★ NEW: tracks the employee search box text
 
 const DEFAULT_AGENCY_DATA = {
         "INI": ["Akshay Maru", "Deepak Giniwala", "Divya Patkal", "Maria Ku", "Nilesh Singh", "Niraj Dharne", "Radhika Ratnakumar", "Shraddha Devlekar", "Shreeya Kamble", "Swapnil Pawar", "Vipul Kasare"].sort(),
@@ -1612,11 +1619,12 @@ function setDefaultTeamData() {
         //  because fetchCloudData() loads only current profile's data into agencyData)
     }
 
-    function getProfileLeavesTodayCount() {
+function getProfileLeavesTodayCount() {
         var today = new Date();
         var todayStr = today.getFullYear() + '-'
             + String(today.getMonth() + 1).padStart(2, '0') + '-'
             + String(today.getDate()).padStart(2, '0');
+        if (isExcludedDate(todayStr)) return 0;
         var scopedLeaves = getProfileScopedLeaves();
         return scopedLeaves.filter(function(l) {
             var lt = (l.type || '').toLowerCase();
@@ -1629,6 +1637,7 @@ function setDefaultTeamData() {
         var todayStr = today.getFullYear() + '-'
             + String(today.getMonth() + 1).padStart(2, '0') + '-'
             + String(today.getDate()).padStart(2, '0');
+        if (isExcludedDate(todayStr)) return 0;
         var scopedLeaves = getProfileScopedLeaves();
         return scopedLeaves.filter(function(l) {
             var lt = (l.type || '').toLowerCase();
@@ -1636,54 +1645,42 @@ function setDefaultTeamData() {
         }).length;
     }
 
+    // ★ UPDATED: Uses overlap-safe, exclusion-aware date map per employee —
+    // no double counting for overlapping leave types, no weekend/Fixed/Government holiday counting.
     function getProfileLeavesThisMonthCount(yr, mo) {
         var mS = new Date(yr, mo, 1);
         var mE = new Date(yr, mo + 1, 0);
         var scopedLeaves = getProfileScopedLeaves();
+        var employees = [...new Set(scopedLeaves.map(function(l){ return l.emp; }))];
         var total = 0;
-        scopedLeaves.forEach(function(l) {
-            var lt = (l.type || '').toLowerCase();
-            if (lt === 'wfh') return;
-            var lS = new Date(l.start + 'T00:00:00');
-            var lE = new Date(l.end   + 'T00:00:00');
-            if (lS <= mE && lE >= mS) {
-                var oS = new Date(Math.max(lS.getTime(), mS.getTime()));
-                var oE = new Date(Math.min(lE.getTime(), mE.getTime()));
-                var days = Math.round((oE - oS) / 86400000) + 1;
-                total += (l.dayType === 'Half Day') ? 0.5 : days;
-            }
+        employees.forEach(function(emp) {
+            var dateMap = getEmployeeEligibleDatesByType(emp, scopedLeaves);
+            Object.keys(dateMap).forEach(function(ds) {
+                var entry = dateMap[ds];
+                if ((entry.type || '').toLowerCase() === 'wfh') return;
+                var d = new Date(ds + 'T00:00:00');
+                if (d >= mS && d <= mE) {
+                    total += (entry.isSingleDay && entry.dayType === 'Half Day') ? 0.5 : 1;
+                }
+            });
         });
         return Math.round(total);
     }
 
-    function getProfileSparklineData7Days(type) {
+function getProfileSparklineData7Days(type) {
         // type = 'leave' | 'wfh' | 'month'
         var today = new Date();
         var scopedLeaves = getProfileScopedLeaves();
         if (type === 'month') {
-            // Last 7 months for "Leaves This Month" sparkline
+            // Last 7 months — reuse the overlap-safe/exclusion-aware month counter
             var result = [];
             for (var i = 6; i >= 0; i--) {
                 var d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-                var mS2 = new Date(d.getFullYear(), d.getMonth(), 1);
-                var mE2 = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-                var mCnt = 0;
-                scopedLeaves.forEach(function(l) {
-                    var lt = (l.type || '').toLowerCase();
-                    if (lt === 'wfh') return;
-                    var lS2 = new Date(l.start + 'T00:00:00');
-                    var lE2 = new Date(l.end   + 'T00:00:00');
-                    if (lS2 <= mE2 && lE2 >= mS2) {
-                        var oS2 = new Date(Math.max(lS2.getTime(), mS2.getTime()));
-                        var oE2 = new Date(Math.min(lE2.getTime(), mE2.getTime()));
-                        mCnt += Math.round((oE2 - oS2) / 86400000) + 1;
-                    }
-                });
-                result.push(mCnt);
+                result.push(getProfileLeavesThisMonthCount(d.getFullYear(), d.getMonth()));
             }
             return result;
         }
-        // Last 7 days for 'leave' or 'wfh'
+        // Last 7 days for 'leave' or 'wfh' — skip excluded (weekend/Fixed/Government holiday) dates
         var result2 = [];
         for (var j = 6; j >= 0; j--) {
             var dd = new Date(today);
@@ -1692,12 +1689,14 @@ function setDefaultTeamData() {
                 + String(dd.getMonth() + 1).padStart(2, '0') + '-'
                 + String(dd.getDate()).padStart(2, '0');
             var cnt = 0;
-            scopedLeaves.forEach(function(l) {
-                var lt = (l.type || '').toLowerCase();
-                if (type === 'leave' && lt === 'wfh') return;
-                if (type === 'wfh'   && lt !== 'wfh') return;
-                if (ds >= l.start && ds <= l.end) cnt++;
-            });
+            if (!isExcludedDate(ds)) {
+                scopedLeaves.forEach(function(l) {
+                    var lt = (l.type || '').toLowerCase();
+                    if (type === 'leave' && lt === 'wfh') return;
+                    if (type === 'wfh'   && lt !== 'wfh') return;
+                    if (ds >= l.start && ds <= l.end) cnt++;
+                });
+            }
             result2.push(cnt);
         }
         return result2;
@@ -2813,8 +2812,20 @@ async function saveProfileChanges() {
             let zip=new JSZip();
             for(const emp of selEmps){
                 const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet("Dashboard Report"); ws.properties.defaultRowHeight=22; ws.columns=[{width:24},{width:24},{width:22},{width:18},{width:16},{width:16}];
-                const dataDict=employeeDataDict[emp]||{}; let empLeaves = getProfileScopedLeaves().filter(l => l.emp === emp); if(fromD)empLeaves=empLeaves.filter(l=>l.end>=fromD); if(toD)empLeaves=empLeaves.filter(l=>l.start<=toD);
-                const stats={}; Object.keys(leaveLimits).forEach(type=>{let used=0,count=0;empLeaves.filter(l=>l.type===type).forEach(l=>{const days=Math.ceil(Math.abs(new Date(l.end)-new Date(l.start))/86400000)+1;used+=(l.dayType==='Half Day')?0.5:days;count++;}); stats[type]={used,count,balance:leaveLimits[type]==='Unlimited'?null:(leaveLimits[type]||0)-used,limit:leaveLimits[type]};});
+const dataDict=employeeDataDict[emp]||{}; let empLeaves = getProfileScopedLeaves().filter(l => l.emp === emp); if(fromD)empLeaves=empLeaves.filter(l=>l.end>=fromD); if(toD)empLeaves=empLeaves.filter(l=>l.start<=toD);
+                const empDateMap=getEmployeeEligibleDatesByType(emp, empLeaves);
+                const stats={}; Object.keys(leaveLimits).forEach(type=>{
+                    let used=0,count=0;
+                    Object.keys(empDateMap).forEach(ds=>{
+                        const entry=empDateMap[ds];
+                        if(entry.type!==type)return;
+                        if(fromD&&ds<fromD)return;
+                        if(toD&&ds>toD)return;
+                        used+=(entry.isSingleDay&&entry.dayType==='Half Day')?0.5:1;
+                    });
+                    count=empLeaves.filter(l=>l.type===type).length;
+                    stats[type]={used,count,balance:leaveLimits[type]==='Unlimited'?null:(leaveLimits[type]||0)-used,limit:leaveLimits[type]};
+                });
                 function sectionHeader(rn,text,mergeTo){const r=ws.getRow(rn);r.getCell(1).value=text;r.getCell(1).font={bold:true,size:11,color:{argb:C.textWhite}};r.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:C.primaryBlue}};r.getCell(1).alignment={horizontal:'left',vertical:'middle',indent:1};r.getCell(1).border={bottom:{style:'medium',color:{argb:C.primaryBlue}}};if(mergeTo)ws.mergeCells(`${String.fromCharCode(64+1)}${rn}:${String.fromCharCode(64+mergeTo)}${rn}`);for(let c=2;c<=(mergeTo||1);c++){r.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:C.primaryBlue}};r.getCell(c).border={bottom:{style:'medium',color:{argb:C.primaryBlue}}};}r.height=30;}
                 function tableHeader(rn,headers){const r=ws.getRow(rn);headers.forEach((h,i)=>{const cell=r.getCell(i+1);cell.value=h;cell.font={bold:true,size:10,color:{argb:C.textWhite}};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:C.darkBg}};cell.alignment={horizontal:'center',vertical:'middle'};cell.border={bottom:{style:'medium',color:{argb:C.primaryBlue}},top:{style:'hair',color:{argb:C.border}}};});r.height=26;}
                 function fillRowBg(row,cols,color){for(let c=1;c<=cols;c++)row.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:color}};}
@@ -2855,11 +2866,15 @@ async function saveProfileChanges() {
         let b='',ri=0; getProfileScopedEmployees().forEach(emp=>{if(!applyFilters(emp))return;
         const avC=getAvatarColor(emp),avI=getInitials(emp);
         let row=`<tr class="stagger-row" style="animation-delay:${ri*0.025}s"><td class="emp-col"><div class="emp-col-content"><span class="avatar-circle" style="background:${avC}">${avI}</span>${emp}</div></td>`;
-        for(let d=1;d<=days;d++){const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,dow=new Date(yr,mo,d).getDay();let cls='',tt='',is='',cellContent='';
+for(let d=1;d<=days;d++){const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,dow=new Date(yr,mo,d).getDay();let cls='',tt='',is='',cellContent='';
 const hol=holidays[ds];
-const l=getProfileScopedLeaves().find(x=>x.emp===emp&&ds>=x.start&&ds<=x.end);
-// ===== FIX: Leaves take priority over holidays/weekends =====
-if(l){
+const excluded=isExcludedDate(ds);
+const l=excluded?null:getProfileScopedLeaves().find(x=>x.emp===emp&&ds>=x.start&&ds<=x.end);
+// ===== UPDATED: Weekends & Fixed/Government Holidays ALWAYS win — leaves never highlight on those dates =====
+if(excluded){
+    if(hol){ cls='grid-holiday'; tt=hol.name; }
+    else { cls='grid-weekend'; }
+}else if(l){
     tt=l.dayType==='Half Day'?`${l.type} Half day`:l.type;
     const ll=l.type.charAt(0).toUpperCase();
     if(l.dayType==='Half Day'){
@@ -2869,15 +2884,12 @@ if(l){
         cls=getLeaveClass(l.type);
         cellContent=`<span class="leave-letter">${ll}</span>`;
     }
-    // Append holiday info to tooltip when leave is on a holiday date
-    if(hol){tt=(hol.type==='Optional'?'Optional: '+hol.name:hol.name)+' | '+tt;}
+    if(hol){tt='Optional: '+hol.name+' | '+tt;}
 }else if(hol){
-    cls=hol.type==='Optional'?'grid-holiday-optional':'grid-holiday';
-    tt=hol.type==='Optional'?'Optional: '+hol.name:hol.name;
-}else if(dow===0||dow===6){
-    cls='grid-weekend';
+    cls='grid-holiday-optional';
+    tt='Optional: '+hol.name;
 }
-// ===== END FIX =====
+// ===== END UPDATE =====
 const tc=d===todayDay?' today-col':'';
 row+=`<td class="${cls}${tc}" style="${is}" onmouseover="showDetails(event,'${tt}')" onmouseout="hideDetails()">${cellContent}</td>`;} b+=row+'</tr>';ri++;});
         document.getElementById('gridBody').innerHTML=b;attachCrosshair();
@@ -2892,24 +2904,79 @@ row+=`<td class="${cls}${tc}" style="${is}" onmouseover="showDetails(event,'${tt
         for(let i=0;i<pad;i++)g.innerHTML+='<div></div>';
          for(let d=1;d<=days;d++){const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hol=holidays[ds];const todayCls=d===todayDay?'today-cell':'';
         let h=`<span class="day-number">${d}</span>`;if(hol){const isOpt=hol.type==='Optional';h+=`<span class="holiday-pill ${isOpt?'holiday-pill-optional':'holiday-pill-fixed'}">${isOpt?'Opt: ':''}${hol.name}</span>`;}
-        getProfileScopedLeaves().forEach(l=>{if(ds>=l.start&&ds<=l.end&&applyFilters(l.emp)){let ht=l.dayType==='Half Day'?`${l.type} Half day`:l.type,dn=l.dayType==='Half Day'?`${l.emp} (\u00BD)`:l.emp;const isTodayLeave=ds===todayStr?' today-leave-badge':'';h+=`<div class="leave-badge ${getBadgeClass(l.type)}${isTodayLeave}" onclick="editLeave('${l.id}')" onmouseover="showDetails(event,'${ht}')" onmouseout="hideDetails()">${dn}</div>`;}});
+if(!isExcludedDate(ds)){getProfileScopedLeaves().forEach(l=>{if(ds>=l.start&&ds<=l.end&&applyFilters(l.emp)){let ht=l.dayType==='Half Day'?`${l.type} Half day`:l.type,dn=l.dayType==='Half Day'?`${l.emp} (\u00BD)`:l.emp;const isTodayLeave=ds===todayStr?' today-leave-badge':'';h+=`<div class="leave-badge ${getBadgeClass(l.type)}${isTodayLeave}" onclick="editLeave('${l.id}')" onmouseover="showDetails(event,'${ht}')" onmouseout="hideDetails()">${dn}</div>`;}});}
         g.innerHTML+=`<div class="day-cell ${todayCls} ${hol?(hol.type==='Optional'?'grid-holiday-cell-optional':'grid-holiday-cell'):''}">${h}</div>`;}
     }
 
     function renderBalance() {
         const head=document.getElementById('balanceHead'),body=document.getElementById('balanceBody');let hH='<tr><th style="padding:12px 8px;text-align:left;width:180px;">Employee Name</th>';
         const sT=document.getElementById('filterType').value,types=sT==='All'?Object.keys(leaveLimits):[sT]; types.forEach(t=>hH+=`<th style="padding:12px 4px;text-align:center;">${t}</th>`); head.innerHTML=hH+'</tr>';
-        let bH='',ri=0; getProfileScopedEmployees().forEach(emp=>{if(!applyFilters(emp))return;
+let bH='',ri=0; getProfileScopedEmployees().forEach(emp=>{if(!applyFilters(emp))return;
         const avC=getAvatarColor(emp),avI=getInitials(emp);
         let row=`<tr class="stagger-row" style="animation-delay:${ri*0.025}s"><td style="padding:10px 8px;border-bottom:1px solid var(--border);"><div class="name-col-content"><span class="avatar-circle" style="background:${avC}">${avI}</span><strong>${emp}</strong></div></td>`;
-        types.forEach(type=>{let used=0;getProfileScopedLeaves().forEach(l=>{if(l.emp===emp&&l.type===type){const days=Math.ceil(Math.abs(new Date(l.end)-new Date(l.start))/86400000)+1;used+=(l.dayType==='Half Day')?0.5:days;}});
+        const empStats=getEmployeeLeaveStats(emp, getProfileScopedLeaves());
+        types.forEach(type=>{let used=empStats[type]||0;
         if(type==='WFH'){row+=`<td style="padding:10px 4px;border-bottom:1px solid var(--border);text-align:center;"><span style="font-weight:700;color:var(--text-main);">${used}</span><span style="color:var(--text-muted);font-size:10px;margin-left:2px;">(Actuals)</span></td>`;}
         else{let bal=(leaveLimits[type]||0)-used;const limit=leaveLimits[type]||0;const isLow=bal<=1&&used>0;const as=isLow?"color:var(--danger);font-weight:700;background:rgba(239,68,68,0.1);padding:2px 6px;border-radius:4px;":"";
         row+=`<td style="padding:10px 4px;border-bottom:1px solid var(--border);text-align:center;"><span style="${as}">${bal}</span><span style="color:var(--text-muted);font-size:10px;"> / ${limit}</span></td>`;}}); bH+=row+'</tr>';ri++;}); body.innerHTML=bH;
     }
 
     function getLeaveClass(t){return{'Casual':'leave-casual','Privilege':'leave-privilege','Sick':'leave-sick','Birthday':'leave-birthday','Paternity':'leave-paternity','Bereavement':'leave-bereavement','WFH':'leave-wfh','Optional Holiday':'leave-optional-holiday'}[t]||'leave-default';}
-     function getBadgeClass(t){return{'Casual':'badge-casual','Privilege':'badge-privilege','Sick':'badge-sick','Birthday':'badge-birthday','Paternity':'badge-paternity','Bereavement':'badge-bereavement','WFH':'badge-wfh','Optional Holiday':'badge-optional-holiday'}[t.trim()]||'badge-default';}
+function getBadgeClass(t){return{'Casual':'badge-casual','Privilege':'badge-privilege','Sick':'badge-sick','Birthday':'badge-birthday','Paternity':'badge-paternity','Bereavement':'badge-bereavement','WFH':'badge-wfh','Optional Holiday':'badge-optional-holiday'}[t.trim()]||'badge-default';}
+
+// ═══════════════════════════════════════════════════════════════
+// NEW: Eligibility & Overlap-Safe Leave Calculation Helpers
+// ═══════════════════════════════════════════════════════════════
+
+// Returns true if a date should be EXCLUDED from leave highlighting/audit:
+// Saturdays, Sundays, and Fixed/Government holidays.
+// Optional Holidays remain ELIGIBLE (return false) — leave/WFH can be taken.
+function isExcludedDate(ds) {
+    const d = new Date(ds + 'T00:00:00');
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) return true;
+    const hol = holidays[ds];
+    if (hol && hol.type !== 'Optional') return true;
+    return false;
+}
+
+// Builds a date -> single-leave-type map for one employee, so overlapping
+// leave types never double-count the same date. First leave (by start date,
+// then by id) to claim a date wins that date. Excluded dates are skipped entirely.
+function getEmployeeEligibleDatesByType(emp, scopedLeaves) {
+    const dateMap = {};
+    const empLeaves = scopedLeaves
+        .filter(l => l.emp === emp)
+        .slice()
+        .sort((a, b) => (a.start.localeCompare(b.start)) || String(a.id || '').localeCompare(String(b.id || '')));
+    empLeaves.forEach(l => {
+        if (!l.start || !l.end) return;
+        let cur = new Date(l.start + 'T00:00:00');
+        const end = new Date(l.end + 'T00:00:00');
+        const isSingleDay = (l.start === l.end);
+        while (cur <= end) {
+            const ds = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+            if (!isExcludedDate(ds) && !dateMap[ds]) {
+                dateMap[ds] = { type: l.type, dayType: l.dayType, isSingleDay: isSingleDay };
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+    });
+    return dateMap;
+}
+
+// Returns { LeaveType: totalDaysUsed } for one employee, using the
+// overlap-safe date map above (each eligible date counted once, for one type only).
+function getEmployeeLeaveStats(emp, scopedLeaves) {
+    const dateMap = getEmployeeEligibleDatesByType(emp, scopedLeaves);
+    const stats = {};
+    Object.values(dateMap).forEach(entry => {
+        if (!stats[entry.type]) stats[entry.type] = 0;
+        stats[entry.type] += (entry.isSingleDay && entry.dayType === 'Half Day') ? 0.5 : 1;
+    });
+    return stats;
+}
+// ═══════════════════════════════════════════════════════════════
 // ===== NEW: Multi-Employee Selection Helper =====
 function getSelectedEmployees() {
     // If nothing selected OR "All Employees" is checked → treat as "show all"
@@ -2917,7 +2984,7 @@ function getSelectedEmployees() {
     return selectedEmpFilter;
 }
 
-// ★ NEW: Builds/refreshes the checkbox list inside the dropdown panel
+// ★ UPDATED: Builds/refreshes the checkbox list, now with a live search box on top
 function renderEmpMultiSelectOptions() {
     const fA = document.getElementById('filterAgency').value;
     const panel = document.getElementById('empMultiSelectPanel');
@@ -2927,11 +2994,28 @@ function renderEmpMultiSelectOptions() {
     selectedEmpFilter = selectedEmpFilter.filter(v => v === 'All' || empList.includes(v));
     if (!selectedEmpFilter.length) selectedEmpFilter = ['All'];
 
-    let html = `<div class="multiselect-option is-all" onclick="toggleEmpOption('All')">
+    const term = (empMultiSelectSearchTerm || '').toLowerCase();
+    const visibleList = term ? empList.filter(e => e.toLowerCase().includes(term)) : empList;
+
+    let html = `<div class="multiselect-search-wrap">
+        <input type="text" id="empMultiSearchInput" class="multiselect-search-input"
+            placeholder="Search employee..."
+            value="${(empMultiSelectSearchTerm || '').replace(/"/g,'&quot;')}"
+            oninput="onEmpMultiSearchInput(this.value)"
+            onclick="event.stopPropagation()"
+            onkeydown="event.stopPropagation()">
+    </div>`;
+
+    html += `<div class="multiselect-option is-all" onclick="toggleEmpOption('All')">
         <input type="checkbox" ${selectedEmpFilter.includes('All') ? 'checked' : ''} onclick="event.stopPropagation();toggleEmpOption('All')">
         <span>All Employees</span>
     </div>`;
-    empList.forEach(e => {
+
+    if (!visibleList.length) {
+        html += `<div style="padding:12px;text-align:center;font-size:12px;color:var(--text-muted);">No employees match "${empMultiSelectSearchTerm}"</div>`;
+    }
+
+    visibleList.forEach(e => {
         const checked = selectedEmpFilter.includes(e) ? 'checked' : '';
         html += `<div class="multiselect-option" onclick="toggleEmpOption('${e.replace(/'/g,"\\'")}')">
             <input type="checkbox" ${checked} onclick="event.stopPropagation();toggleEmpOption('${e.replace(/'/g,"\\'")}')">
@@ -2940,6 +3024,16 @@ function renderEmpMultiSelectOptions() {
     });
     panel.innerHTML = html;
     updateEmpMultiSelectButtonLabel();
+}
+
+// ★ NEW: Handles typing in the employee search box without closing the dropdown
+function onEmpMultiSearchInput(val) {
+    empMultiSelectSearchTerm = val;
+    renderEmpMultiSelectOptions();
+    setTimeout(function () {
+        const input = document.getElementById('empMultiSearchInput');
+        if (input) { input.focus(); input.setSelectionRange(val.length, val.length); }
+    }, 0);
 }
 
 // ★ NEW: Toggles one employee's checkbox on/off (checkbox-style multi-select, no Ctrl needed)
@@ -2974,14 +3068,24 @@ function updateEmpMultiSelectButtonLabel() {
     }
 }
 
-// ★ NEW: Opens/closes the dropdown panel
+// ★ UPDATED: Opens/closes the dropdown panel and resets/focuses search on open
 function toggleEmpMultiSelect(e) {
     if (e) e.stopPropagation();
     const panel = document.getElementById('empMultiSelectPanel');
     const btn = document.getElementById('empMultiSelectBtn');
     const isOpen = panel.classList.contains('open');
+    if (!isOpen) {
+        empMultiSelectSearchTerm = '';
+        renderEmpMultiSelectOptions();
+    }
     panel.classList.toggle('open', !isOpen);
     btn.classList.toggle('open', !isOpen);
+    if (!isOpen) {
+        setTimeout(function () {
+            const input = document.getElementById('empMultiSearchInput');
+            if (input) input.focus();
+        }, 60);
+    }
 }
 
 // ★ NEW: Close the panel when clicking anywhere outside it
