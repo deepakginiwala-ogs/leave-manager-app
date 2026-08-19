@@ -491,11 +491,6 @@ button:not(.btn-apply):not(.btn-export):not(.btn-danger):not(.sidebar-toggle):ho
         .active-filter-badge { display: none; font-size: 10px; font-weight: 700; background: rgba(99,102,241,0.15); color: var(--primary); border: 1px solid rgba(99,102,241,0.25); padding: 2px 8px; border-radius: 99px; margin-left: 4px; white-space: nowrap; }
         .active-filter-badge.visible { display: inline-flex; align-items: center; gap: 4px; animation: badgePop 0.3s var(--ease-spring); }
         @keyframes badgePop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .emp-details-grid {
-            display: none; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 10px;
-            padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-main);
-            font-size: 13px; letter-spacing: 0.3px; text-transform: uppercase;
-            transition: border-color 0.4s var(--ease-smooth), color 0.4s var(--ease-smooth);
         }
         .emp-details-grid div.col { display: flex; flex-direction: column; gap: 12px; }
         .emp-details-grid span { color: var(--text-muted); display: inline-block; width: 120px; transition: color 0.4s var(--ease-smooth); }
@@ -647,8 +642,8 @@ tbody tr:last-child td { border-bottom: none; }
         .empty-state p { font-size: 13px; font-weight: 500; }
         .empty-state .empty-sub { font-size: 12px; margin-top: 6px; opacity: 0.7; }
 
-                body, .sidebar, .card, .modal-content, th, .emp-col, .day-cell, .filter-group,
-.table-container, .emp-details-grid, .nav-item, .theme-switch, #hoverPane {
+ body, .sidebar, .card, .modal-content, th, .emp-col, .day-cell, .filter-group,
+.table-container, .nav-item, .theme-switch, #hoverPane {
     transition: background-color 0.4s var(--ease-smooth), color 0.4s var(--ease-smooth), border-color 0.4s var(--ease-smooth), box-shadow 0.4s var(--ease-smooth), transform 0.4s var(--ease-smooth);
 }
 
@@ -1111,23 +1106,6 @@ body[data-theme="light"]::after { opacity: 0 !important; }
                     <button class="btn-apply" onclick="openModal()" id="btnSaveMain"><i data-lucide="plus"></i> Record Leave</button>
                 </div>
             </div>
-            <div class="emp-details-grid" id="empDetailsGrid">
-                <div class="col">
-                    <div><span>NAME :</span> <b id="lblEmpName">-</b></div>
-                    <div><span>EMPLOYEE ID :</span> <b id="lblEmpId">-</b></div>
-                    <div><span>CRAFT :</span> <b id="lblEmpCraft">-</b></div>
-                </div>
-                <div class="col">
-                    <div><span>JOB TITLE :</span> <b id="lblEmpJob">-</b></div>
-                    <div><span>CLUSTER NO :</span> <b id="lblEmpClusterNo">-</b></div>
-                    <div><span>AGENCY :</span> <b id="lblEmpAgency">-</b></div>
-                </div>
-                <div class="col">
-                    <div><span>EMAIL ID :</span> <b id="lblEmpEmail">-</b></div>
-                    <div><span>CLUSTER LEAD :</span> <b id="lblEmpLead">-</b></div>
-                    <div><span>MARKET :</span> <b id="lblEmpMarket">-</b></div>
-                </div>
-            </div>
                 </div>
 
         <div class="kpi-grid" id="kpiGrid">
@@ -1223,7 +1201,11 @@ body[data-theme="light"]::after { opacity: 0 !important; }
                     <div id="modalEmpMeta" style="font-size:11px;color:var(--text-muted);margin-top:1px;">Recording leave</div>
                 </div>
             </div>
-            <h3 id="modalTitle" style="margin-bottom: 20px;">Record Application</h3>
+<h3 id="modalTitle" style="margin-bottom: 20px;">Record Application</h3>
+            <div id="multiDayEditNote" style="display:none;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--text-main);line-height:1.5;">
+                <i data-lucide="info" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;color:var(--primary);"></i>
+                <span id="multiDayEditNoteText"></span>
+            </div>
             <input type="hidden" id="editId">
             <div class="form-group"><label class="modal-label">Agency</label><select id="modalAgency" style="width:100%;" onchange="updateModalEmp()"><option value="" disabled selected>-- Select Agency First --</option><option value="All">All Agency</option><option value="INI">INI</option><option value="UM">UM</option><option value="NA">NA</option></select></div>
             <div class="form-group"><label class="modal-label">Team Member</label><select id="empName" style="width:100%;" onchange="updateModalContextHeader()"></select></div>
@@ -1951,24 +1933,9 @@ function populateFilterDropdowns() {
     document.getElementById('globalMonthSelect').value = new Date().getMonth();
 }
 
-function updateEmployeeDetailsPanel() {
-        const selectedEmps = getSelectedEmployees(); const p=document.getElementById('empDetailsGrid');
-        // Only show the details panel when EXACTLY ONE employee is selected
-        if(!selectedEmps || selectedEmps.length !== 1){p.style.display='none';return;}
-        const s = selectedEmps[0];
-        p.style.display='grid';
-        const d=employeeDataDict[s];
-        document.getElementById('lblEmpName').innerText=d?.['Name']||'-'; document.getElementById('lblEmpId').innerText=d?.['Employee ID']||'-';
-        document.getElementById('lblEmpCraft').innerText=d?.['Craft']||'-'; document.getElementById('lblEmpJob').innerText=d?.['Job Title']||'-';
-        document.getElementById('lblEmpClusterNo').innerText=d?.['Cluster No.']||'-'; document.getElementById('lblEmpAgency').innerText=d?.['Agency']||'-';
-        document.getElementById('lblEmpEmail').innerText=d?.['Email ID']||'-'; document.getElementById('lblEmpLead').innerText=d?.['Reporting Manager']||'-';
-        document.getElementById('lblEmpMarket').innerText=d?.['Market']||'-';
-    }
-
 function updateFilterDropdowns() {
         // ★ UPDATED: Populate the new custom checkbox multi-select instead of native <select>
         renderEmpMultiSelectOptions();
-        updateEmployeeDetailsPanel();
     }
 
 function updateModalEmp(sel=null) {
@@ -1997,16 +1964,15 @@ function updateModalEmp(sel=null) {
 
     function refresh() { renderKPIs(); if(activeView==='dashboard')renderDashboard(); else if(activeView==='calendar')renderCalendar(); else if(activeView==='balance')renderBalance(); else if(activeView==='records')renderRecords(); }
 
-    function switchView(v, offset) {
+function switchView(v, offset) {
         activeView=v; document.querySelectorAll('.view-section').forEach(s=>s.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
         if(v!=='manage'){ document.getElementById(v+'-view').classList.add('active'); document.getElementById('nav-'+v).classList.add('active');
             if(!document.getElementById('sidebar').classList.contains('collapsed')){document.getElementById('navIndicator').style.opacity='1';document.getElementById('navIndicator').style.transform=`translateY(${offset}px)`;}
         }
         const filterBar = document.getElementById('filterBar');
-        const detailsGrid = document.getElementById('empDetailsGrid');
-                const kpiGrid = document.getElementById('kpiGrid');
-        if (v === 'records') { filterBar.style.display = 'none'; detailsGrid.style.display = 'none'; if(kpiGrid) kpiGrid.style.display = 'none'; }
-        else { filterBar.style.display = 'flex'; updateEmployeeDetailsPanel(); if(kpiGrid) kpiGrid.style.display = 'grid'; }
+        const kpiGrid = document.getElementById('kpiGrid');
+        if (v === 'records') { filterBar.style.display = 'none'; if(kpiGrid) kpiGrid.style.display = 'none'; }
+        else { filterBar.style.display = 'flex'; if(kpiGrid) kpiGrid.style.display = 'grid'; }
         refresh();
     }
 
@@ -2904,7 +2870,7 @@ row+=`<td class="${cls}${tc}" style="${is}" onmouseover="showDetails(event,'${tt
         for(let i=0;i<pad;i++)g.innerHTML+='<div></div>';
          for(let d=1;d<=days;d++){const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hol=holidays[ds];const todayCls=d===todayDay?'today-cell':'';
         let h=`<span class="day-number">${d}</span>`;if(hol){const isOpt=hol.type==='Optional';h+=`<span class="holiday-pill ${isOpt?'holiday-pill-optional':'holiday-pill-fixed'}">${isOpt?'Opt: ':''}${hol.name}</span>`;}
-if(!isExcludedDate(ds)){getProfileScopedLeaves().forEach(l=>{if(ds>=l.start&&ds<=l.end&&applyFilters(l.emp)){let ht=l.dayType==='Half Day'?`${l.type} Half day`:l.type,dn=l.dayType==='Half Day'?`${l.emp} (\u00BD)`:l.emp;const isTodayLeave=ds===todayStr?' today-leave-badge':'';h+=`<div class="leave-badge ${getBadgeClass(l.type)}${isTodayLeave}" onclick="editLeave('${l.id}')" onmouseover="showDetails(event,'${ht}')" onmouseout="hideDetails()">${dn}</div>`;}});}
+if(!isExcludedDate(ds)){getProfileScopedLeaves().forEach(l=>{if(ds>=l.start&&ds<=l.end&&applyFilters(l.emp)){let ht=l.dayType==='Half Day'?`${l.type} Half day`:l.type,dn=l.dayType==='Half Day'?`${l.emp} (\u00BD)`:l.emp;const isTodayLeave=ds===todayStr?' today-leave-badge':'';h+=`<div class="leave-badge ${getBadgeClass(l.type)}${isTodayLeave}" onclick="editLeave('${l.id}','${ds}')" onmouseover="showDetails(event,'${ht}')" onmouseout="hideDetails()">${dn}</div>`;}});}
         g.innerHTML+=`<div class="day-cell ${todayCls} ${hol?(hol.type==='Optional'?'grid-holiday-cell-optional':'grid-holiday-cell'):''}">${h}</div>`;}
     }
 
@@ -2923,6 +2889,36 @@ let bH='',ri=0; getProfileScopedEmployees().forEach(emp=>{if(!applyFilters(emp))
 
     function getLeaveClass(t){return{'Casual':'leave-casual','Privilege':'leave-privilege','Sick':'leave-sick','Birthday':'leave-birthday','Paternity':'leave-paternity','Bereavement':'leave-bereavement','WFH':'leave-wfh','Optional Holiday':'leave-optional-holiday'}[t]||'leave-default';}
 function getBadgeClass(t){return{'Casual':'badge-casual','Privilege':'badge-privilege','Sick':'badge-sick','Birthday':'badge-birthday','Paternity':'badge-paternity','Bereavement':'badge-bereavement','WFH':'badge-wfh','Optional Holiday':'badge-optional-holiday'}[t.trim()]||'badge-default';}
+
+// ═══════════════════════════════════════════════════════════════
+// ★ NEW: Multi-Day Leave Split Helpers (partial edit/delete support)
+// ═══════════════════════════════════════════════════════════════
+function addDays(ds, n) {
+    const d = new Date(ds + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// Given an original leave record and a date-range being removed/replaced (exStart..exEnd, inclusive),
+// returns the leftover leave record(s) covering the untouched days (before / after), preserving
+// the original type/dayType/emp/profile. Returns [] if the entire original range is consumed.
+function splitLeaveExcludingRange(orig, exStart, exEnd) {
+    const segments = [];
+    if (exStart > orig.start) {
+        const beforeEnd = addDays(exStart, -1);
+        if (beforeEnd >= orig.start) {
+            segments.push({ ...orig, id: "L-" + Date.now() + "-b" + Math.random().toString(36).slice(2, 7), start: orig.start, end: beforeEnd });
+        }
+    }
+    if (exEnd < orig.end) {
+        const afterStart = addDays(exEnd, 1);
+        if (afterStart <= orig.end) {
+            segments.push({ ...orig, id: "L-" + Date.now() + "-a" + Math.random().toString(36).slice(2, 7), start: afterStart, end: orig.end });
+        }
+    }
+    return segments;
+}
+// ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
 // NEW: Eligibility & Overlap-Safe Leave Calculation Helpers
@@ -3049,9 +3045,8 @@ function toggleEmpOption(value) {
         }
         if (!selectedEmpFilter.length) selectedEmpFilter = ['All'];
     }
-    renderEmpMultiSelectOptions();
+renderEmpMultiSelectOptions();
     refresh();
-    updateEmployeeDetailsPanel();
     updateActiveFilterBadge();
 }
 
@@ -3174,21 +3169,79 @@ function getEmployeeProfile(empName) {
     }
     // ===== END FIX =====
 
-    const id=document.getElementById('editId').value;
-    const entry={id:id||"L-"+Date.now(),emp:document.getElementById('empName').value,type:leaveType,dayType:document.getElementById('dayType').value,start:sV,end:eV, profile: currentProfile ? currentProfile.name : 'Planning and Buying'};
-    if(id)leaves=leaves.map(x=>x.id===id?entry:x);else leaves.push(entry);
+const id=document.getElementById('editId').value;
+    const newEntry={id:id||"L-"+Date.now(),emp:document.getElementById('empName').value,type:leaveType,dayType:document.getElementById('dayType').value,start:sV,end:eV, profile: currentProfile ? currentProfile.name : 'Planning and Buying'};
+
+    if (!id) {
+        // Brand new leave — nothing to split
+        leaves.push(newEntry);
+    } else {
+        const orig = leaves.find(x => x.id === id);
+        if (!orig || (sV === orig.start && eV === orig.end)) {
+            // Dates unchanged from the original full range — simple full update (old behavior)
+            leaves = leaves.map(x => x.id === id ? newEntry : x);
+        } else {
+            // ★ FIX: Partial edit within a multi-day leave — split, keep untouched days intact
+            leaves = leaves.filter(x => x.id !== id);
+            const leftover = splitLeaveExcludingRange(orig, sV, eV);
+            newEntry.id = "L-" + Date.now() + "-e" + Math.random().toString(36).slice(2, 7);
+            leaves.push(...leftover, newEntry);
+        }
+    }
+
     if(await pushLeavesToCloud()){closeModal();refresh();}
 }
-    async function deleteLeave(){
+async function deleteLeave(){
         if(!confirm("Delete this record?"))return;
         // ★ SECURITY FIX: Authenticate BEFORE removing the record
         const pass = await getSecurePassword();
         if (pass === null) { return; }
-        leaves=leaves.filter(x=>x.id!==document.getElementById('editId').value);
+        const id = document.getElementById('editId').value;
+        const orig = leaves.find(x => x.id === id);
+        const delStart = document.getElementById('startDate').value;
+        const delEnd = document.getElementById('endDate').value;
+        if (!orig || !delStart || !delEnd || (delStart === orig.start && delEnd === orig.end)) {
+            leaves=leaves.filter(x=>x.id!==id);
+        } else {
+            leaves=leaves.filter(x=>x.id!==id);
+            const leftover = splitLeaveExcludingRange(orig, delStart, delEnd);
+            leaves.push(...leftover);
+        }
         if(await pushLeavesToCloud()){closeModal();refresh();}
     }
-    function editLeave(id){const l=leaves.find(x=>x.id===id);if(!l)return;document.getElementById('editId').value=l.id;document.getElementById('modalAgency').value=getAgency(l.emp);updateModalEmp(l.emp);document.getElementById('startDate').value=l.start;document.getElementById('endDate').value=l.end;document.getElementById('leaveType').value=l.type;document.getElementById('dayType').value=l.dayType||'Full Day';document.getElementById('delBtn').style.display='block';document.getElementById('delConfirmBtn').style.display='none';document.getElementById('delConfirmCancelBtn').style.display='none';document.getElementById('cancelModalBtn').style.display='block';document.getElementById('commitBtn').style.display='inline-flex';document.getElementById('dateError').style.display='none';if(l.start)document.getElementById('endDate').min=l.start;document.getElementById('leaveModal').style.display='flex'; setTimeout(()=>updateModalContextHeader(), 50);}
-    function openModal(){document.getElementById('editId').value='';document.getElementById('delBtn').style.display='none';document.getElementById('delConfirmBtn').style.display='none';document.getElementById('delConfirmCancelBtn').style.display='none';document.getElementById('cancelModalBtn').style.display='block';document.getElementById('commitBtn').style.display='inline-flex';document.getElementById('modalAgency').value='';document.getElementById('empName').innerHTML='';document.getElementById('startDate').value='';document.getElementById('endDate').value='';document.getElementById('dayType').value='Full Day';document.getElementById('dateError').style.display='none';const hdr=document.getElementById('modalContextHeader');if(hdr)hdr.style.display='none';resetDateValidation();document.getElementById('leaveModal').style.display='flex';}
+// ★ UPDATED: accepts optional clickedDate — prefills the form with just that single date
+    // so Save/Delete only affects that date, leaving the rest of a multi-day leave untouched.
+    function editLeave(id, clickedDate){
+        const l=leaves.find(x=>x.id===id);if(!l)return;
+        document.getElementById('editId').value=l.id;
+        document.getElementById('modalAgency').value=getAgency(l.emp);
+        updateModalEmp(l.emp);
+        const targetDate = clickedDate || l.start;
+        document.getElementById('startDate').value=targetDate;
+        document.getElementById('endDate').value=targetDate;
+        document.getElementById('leaveType').value=l.type;
+        document.getElementById('dayType').value=l.dayType||'Full Day';
+        document.getElementById('delBtn').style.display='block';
+        document.getElementById('delConfirmBtn').style.display='none';
+        document.getElementById('delConfirmCancelBtn').style.display='none';
+        document.getElementById('cancelModalBtn').style.display='block';
+        document.getElementById('commitBtn').style.display='inline-flex';
+        document.getElementById('dateError').style.display='none';
+        document.getElementById('endDate').removeAttribute('min');
+        // ★ NEW: Show a note if this leave spans multiple days
+        const note = document.getElementById('multiDayEditNote');
+        const noteText = document.getElementById('multiDayEditNoteText');
+        if (note && noteText) {
+            if (l.start !== l.end) {
+                noteText.innerText = `This date is part of a multi-day ${l.type} leave (${l.start} to ${l.end}). Saving or deleting will only affect the date range shown above — widen the dates to affect more days, or narrow further for a single day.`;
+                note.style.display = 'block';
+            } else {
+                note.style.display = 'none';
+            }
+        }
+        document.getElementById('leaveModal').style.display='flex'; setTimeout(()=>updateModalContextHeader(), 50);
+    }
+    function openModal(){document.getElementById('editId').value='';document.getElementById('delBtn').style.display='none';document.getElementById('delConfirmBtn').style.display='none';document.getElementById('delConfirmCancelBtn').style.display='none';document.getElementById('cancelModalBtn').style.display='block';document.getElementById('commitBtn').style.display='inline-flex';document.getElementById('modalAgency').value='';document.getElementById('empName').innerHTML='';document.getElementById('startDate').value='';document.getElementById('endDate').value='';document.getElementById('dayType').value='Full Day';document.getElementById('dateError').style.display='none';const hdr=document.getElementById('modalContextHeader');if(hdr)hdr.style.display='none';const note=document.getElementById('multiDayEditNote');if(note)note.style.display='none';resetDateValidation();document.getElementById('leaveModal').style.display='flex';}
     function closeModal(){closeModalAnimated(document.getElementById('leaveModal'));}
 
     // ===== INLINE DELETE CONFIRM (replaces browser confirm()) =====
@@ -3223,7 +3276,21 @@ async function confirmDeleteNow() {
         const pass = await getSecurePassword();
         if (pass === null) { cancelDeleteConfirm(); return; }
 
-        leaves = leaves.filter(x => x.id !== document.getElementById('editId').value);
+        const id = document.getElementById('editId').value;
+        const orig = leaves.find(x => x.id === id);
+        const delStart = document.getElementById('startDate').value;
+        const delEnd = document.getElementById('endDate').value;
+
+        if (!orig || !delStart || !delEnd || (delStart === orig.start && delEnd === orig.end)) {
+            // Full record delete (dates unchanged from original — old behavior)
+            leaves = leaves.filter(x => x.id !== id);
+        } else {
+            // ★ FIX: Partial delete — remove only the selected date(s), keep the rest of the leave intact
+            leaves = leaves.filter(x => x.id !== id);
+            const leftover = splitLeaveExcludingRange(orig, delStart, delEnd);
+            leaves.push(...leftover);
+        }
+
         if (await pushLeavesToCloud()) { closeModal(); refresh(); }
     }
 
