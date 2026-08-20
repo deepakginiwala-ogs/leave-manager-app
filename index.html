@@ -486,8 +486,6 @@ button:not(.btn-apply):not(.btn-export):not(.btn-danger):not(.sidebar-toggle):ho
 [data-theme="light"] .filter-group { border: 1px solid rgba(0, 0, 0, 0.04); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
         .top-bar-actions { display: flex; gap: 10px; align-items: center; }
         .filter-divider-v { width: 1px; height: 24px; background: var(--border); opacity: 0.6; flex-shrink: 0; }
-        #searchBar { width: 200px; transition: width 0.3s var(--ease-smooth), border-color 0.25s var(--ease-smooth), box-shadow 0.25s var(--ease-smooth) !important; }
-        #searchBar:focus { width: 280px; }
         .active-filter-badge { display: none; font-size: 10px; font-weight: 700; background: rgba(99,102,241,0.15); color: var(--primary); border: 1px solid rgba(99,102,241,0.25); padding: 2px 8px; border-radius: 99px; margin-left: 4px; white-space: nowrap; }
         .active-filter-badge.visible { display: inline-flex; align-items: center; gap: 4px; animation: badgePop 0.3s var(--ease-spring); }
         @keyframes badgePop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -1078,8 +1076,6 @@ body[data-theme="light"]::after { opacity: 0 !important; }
                     <div class="filter-zone-label">Filter by</div>
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         <div class="filter-group">
-                            <input type="text" id="searchBar" placeholder="Search team member..." onkeyup="refresh(); updateActiveFilterBadge()"><span class="kbd-hint" id="searchHint">⌘K</span>
-                            <div class="filter-divider-v"></div>
 <select id="filterAgency" onchange="updateFilterDropdowns(); refresh(); updateActiveFilterBadge()">
                                 <option value="All">All Agencies</option><option value="INI">INI</option><option value="UM">UM</option><option value="NA">NA</option>
                             </select>
@@ -1456,7 +1452,6 @@ function initCardShine() {
             }
             document.querySelectorAll('.modal').forEach(m => { if (m.style.display === 'flex') closeModalAnimated(m); });
         }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.getElementById('searchBar').focus(); }
     });
 
     const WORKER_BASE = 'https://leave-manager-proxy.deepak-giniwala.workers.dev';
@@ -3174,10 +3169,8 @@ document.addEventListener('click', function(e) {
 function applyFilters(emp) {
     const sA = document.getElementById('filterAgency').value;
     const selectedEmps = getSelectedEmployees(); // null = "All", or array of selected names
-    const s = document.getElementById('searchBar').value.toLowerCase();
     if (sA !== 'All' && getAgency(emp) !== sA) return false;
     if (selectedEmps && !selectedEmps.includes(emp)) return false;
-    if (s && !emp.toLowerCase().includes(s)) return false;
     
     // ★ FIX: Multi-tenant scoping — only filter if we can definitively determine the employee belongs to a DIFFERENT profile
     if (currentProfile && !currentProfile.isAdmin) {
@@ -3414,15 +3407,12 @@ function updateActiveFilterBadge() {
         const countEl = document.getElementById('activeFilterCount');
         if (!badge || !countEl) return;
         let count = 0;
-        const search = document.getElementById('searchBar');
         const agency = document.getElementById('filterAgency');
         const selectedEmps = getSelectedEmployees();
         const type = document.getElementById('filterType');
-        if (search && search.value.trim() !== '') count++;
         if (agency && agency.value !== 'All') count++;
         if (selectedEmps && selectedEmps.length > 0) count++;
-        if (type && type.value !== 'All') count++;
-        if (count > 0) {
+        if (type && type.value !== 'All') count++;        if (count > 0) {
             countEl.textContent = count;
             badge.classList.add('visible');
         } else {
