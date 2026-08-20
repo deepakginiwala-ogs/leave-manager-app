@@ -1083,6 +1083,9 @@ body[data-theme="light"]::after { opacity: 0 !important; }
 <select id="filterAgency" onchange="updateFilterDropdowns(); refresh(); updateActiveFilterBadge()">
                                 <option value="All">All Agencies</option><option value="INI">INI</option><option value="UM">UM</option><option value="NA">NA</option>
                             </select>
+                            <select id="filterProfile" style="display:none;" onchange="onProfileFilterChange()">
+                                <option value="All">All Profiles</option>
+                            </select>
                             <div class="multiselect-wrap" id="empMultiSelectWrap">
     <button type="button" class="multiselect-btn" id="empMultiSelectBtn" onclick="toggleEmpMultiSelect(event)">All Employees</button>
     <div class="multiselect-panel" id="empMultiSelectPanel"></div></div>
@@ -1466,6 +1469,7 @@ function initCardShine() {
     let leaves = [];
     let activeView = 'dashboard';
     let selectedEmpFilter = ['All']; // ★ NEW: tracks custom multi-select checkbox state
+    let adminProfileFilter = 'All'; // ★ NEW: Admin-only — tracks which Profile is currently being viewed ('All' = every profile)
     let empMultiSelectSearchTerm = ''; // ★ NEW: tracks the employee search box text
 
 const DEFAULT_AGENCY_DATA = {
@@ -1576,9 +1580,18 @@ function setDefaultTeamData() {
         return currentProfile && (currentProfile.isAdmin === true);
     }
 
-    function getProfileScopedLeaves() {
-        // Admin sees ALL leaves across every profile
-        if (isAdminProfile()) return leaves;
+function getProfileScopedLeaves() {
+        // ★ UPDATED: Admin — if a specific Profile is selected in the filter, scope to that profile only
+        if (isAdminProfile()) {
+            if (adminProfileFilter && adminProfileFilter !== 'All') {
+                return leaves.filter(function(l) {
+                    var lProfile = l.profile || '';
+                    if (lProfile && lProfile === adminProfileFilter) return true;
+                    return getEmployeeProfile(l.emp) === adminProfileFilter;
+                });
+            }
+            return leaves; // "All Profiles" — Admin sees everything
+        }
         // Non-admin: only leaves where profile matches current profile name
         if (!currentProfile || !currentProfile.name) return [];
         return leaves.filter(function(l) {
@@ -1593,8 +1606,21 @@ function setDefaultTeamData() {
     }
 
     function getProfileScopedEmployees() {
-        // Admin sees ALL employees across all profiles
-        if (isAdminProfile()) return getAllEmployees();
+        // ★ UPDATED: Admin — if a specific Profile is selected in the filter, scope to that profile's employees only
+        if (isAdminProfile()) {
+            if (adminProfileFilter && adminProfileFilter !== 'All') {
+                var pData = (teamData.profiles || {})[adminProfileFilter];
+                if (pData && pData.agencyData) {
+                    return [
+                        ...(Array.isArray(pData.agencyData.INI) ? pData.agencyData.INI : []),
+                        ...(Array.isArray(pData.agencyData.UM)  ? pData.agencyData.UM  : []),
+                        ...(Array.isArray(pData.agencyData.NA)  ? pData.agencyData.NA  : [])
+                    ].sort();
+                }
+                return [];
+            }
+            return getAllEmployees(); // "All Profiles" — Admin sees every employee
+        }
         // Non-admin: only employees in their own agencyData
         return getAllEmployees();
         // (getAllEmployees already reads from the profile-scoped agencyData
@@ -1711,7 +1737,7 @@ function getProfileSparklineData7Days(type) {
         return false;
     }
 
-    function applyRoleUI() {
+function applyRoleUI() {
         if (!currentProfile) return;
         const isAdmin = currentProfile.isAdmin;
 
@@ -1719,6 +1745,17 @@ function getProfileSparklineData7Days(type) {
         document.getElementById('nav-create-profile').style.display = isAdmin ? '' : 'none';
         document.getElementById('nav-holidays').style.display       = isAdmin ? '' : 'none';
         document.getElementById('navAdminDivider').style.display    = isAdmin ? '' : 'none';
+
+        // ★ NEW: Show the Profile filter dropdown ONLY for Admin, and populate it
+        const profileFilterEl = document.getElementById('filterProfile');
+        if (profileFilterEl) {
+            profileFilterEl.style.display = isAdmin ? '' : 'none';
+            if (isAdmin) {
+                populateProfileFilterDropdown();
+            } else {
+                adminProfileFilter = 'All'; // safety reset for non-admin
+            }
+        }
 
         // Update greeting
         const h = new Date().getHours();
@@ -1729,21 +1766,57 @@ function getProfileSparklineData7Days(type) {
         document.getElementById('welcomeMessage').innerHTML =
             `Welcome Back, <span class="greeting-accent">${displayName}</span> 👋 ${g}`;
 
-        // ✅ Update data scope indicator badge
+        updateDataScopeIndicator();
+    }
+
+    // ★ NEW: Populates the Admin-only Profile filter dropdown from profilesConfig (dynamic — auto-updates when profiles are added/removed)
+    function populateProfileFilterDropdown() {
+        const sel = document.getElementById('filterProfile');
+        if (!sel) return;
+        const prevValue = adminProfileFilter;
+        sel.innerHTML = '<option value="All">All Profiles</option>';
+        profilesConfig
+            .filter(p => !p.isAdmin)
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .forEach(p => { sel.options.add(new Option(p.name, p.name)); });
+        // Restore previous selection if it still exists, else reset to "All"
+        const stillExists = Array.from(sel.options).some(o => o.value === prevValue);
+        adminProfileFilter = stillExists ? prevValue : 'All';
+        sel.value = adminProfileFilter;
+    }
+
+    // ★ NEW: Fired when Admin changes the Profile filter dropdown
+    function onProfileFilterChange() {
+        const sel = document.getElementById('filterProfile');
+        adminProfileFilter = sel ? sel.value : 'All';
+        updateFilterDropdowns();   // refresh Employee multi-select list to match new profile scope
+        refresh();                 // re-render dashboard/calendar/audit/records with new scope
+        updateActiveFilterBadge();
+        updateDataScopeIndicator();
+    }
+
+    // ★ NEW: Updates the scope indicator badge text to reflect the selected Profile (Admin only)
+    function updateDataScopeIndicator() {
         const scopeEl = document.getElementById('dataScopeIndicator');
-        if (scopeEl) {
-            scopeEl.style.display = 'inline-flex';
-            if (isAdmin) {
+        if (!scopeEl || !currentProfile) return;
+        scopeEl.style.display = 'inline-flex';
+        if (currentProfile.isAdmin) {
+            if (adminProfileFilter && adminProfileFilter !== 'All') {
+                scopeEl.innerHTML   = '&#9733; Admin &mdash; Viewing: ' + adminProfileFilter;
+                scopeEl.style.background = 'rgba(99,102,241,0.15)';
+                scopeEl.style.color      = '#818CF8';
+                scopeEl.style.border     = '1px solid rgba(99,102,241,0.25)';
+            } else {
                 scopeEl.innerHTML   = '&#9733; Admin &mdash; Viewing All Profiles';
                 scopeEl.style.background = 'rgba(251,191,36,0.15)';
                 scopeEl.style.color      = '#FBBF24';
                 scopeEl.style.border     = '1px solid rgba(251,191,36,0.25)';
-            } else {
-                scopeEl.innerHTML   = '&#128274; ' + currentProfile.name + ' &mdash; Profile View Only';
-                scopeEl.style.background = 'rgba(99,102,241,0.12)';
-                scopeEl.style.color      = 'rgba(165,180,252,0.9)';
-                scopeEl.style.border     = '1px solid rgba(99,102,241,0.2)';
             }
+        } else {
+            scopeEl.innerHTML   = '&#128274; ' + currentProfile.name + ' &mdash; Profile View Only';
+            scopeEl.style.background = 'rgba(99,102,241,0.12)';
+            scopeEl.style.color      = 'rgba(165,180,252,0.9)';
+            scopeEl.style.border     = '1px solid rgba(99,102,241,0.2)';
         }
     }
 
@@ -2353,7 +2426,7 @@ function getSecurePassword() {
         const profileGroup = document.getElementById('mtProfileGroup');
         const profileAssign = document.getElementById('mtProfileAssign');
 
-        // Show profile selector only for Admin
+// Show profile selector only for Admin
         if (currentProfile && currentProfile.isAdmin && profileGroup) {
             profileGroup.style.display = 'block';
             profileAssign.innerHTML = '<option value="">-- Auto Detect --</option>';
@@ -2364,6 +2437,9 @@ function getSecurePassword() {
             if (n) {
                 const empProfile = getEmployeeProfile(n);
                 if (empProfile && empProfile !== 'Unknown') profileAssign.value = empProfile;
+            } else if (adminProfileFilter && adminProfileFilter !== 'All') {
+                // ★ NEW: For a brand-new member, auto-preselect the currently active Profile filter
+                profileAssign.value = adminProfileFilter;
             }
         } else if (profileGroup) {
             profileGroup.style.display = 'none';
@@ -2682,11 +2758,12 @@ async function saveProfileChanges() {
         try {
             await syncSpecificFile(PROFILES_FILE_PATH, { profiles: profilesConfig }, "Updated profiles");
             await syncTeamToCloud();
-            showToast("Profile saved successfully", "success");
+	    showToast("Profile saved successfully", "success");
             populateProfileDropdown();
             document.getElementById('mpSelectExisting').value = '';
             loadProfileIntoForm();
             initLoginDropdown();
+            populateProfileFilterDropdown(); // ★ NEW: keep Filter By dropdown in sync
         } catch (e) {
             showToast("Failed to save profile", "error");
         }
@@ -2711,6 +2788,7 @@ async function saveProfileChanges() {
             document.getElementById('mpSelectExisting').value = '';
             loadProfileIntoForm();
             initLoginDropdown();
+            populateProfileFilterDropdown(); // ★ NEW: keep Filter By dropdown in sync
         } catch (e) {
             showToast("Failed to delete profile", "error");
         }
