@@ -1072,8 +1072,8 @@ body[data-theme="light"]::after { opacity: 0 !important; }
             </div>
         </div>
 
-        <div class="card top-bar-container">
-            <div class="top-bar" id="filterBar">
+<div class="card top-bar-container">
+            <div class="top-bar" id="filterBar" style="align-items:flex-start;">
                 <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
                     <div class="filter-zone-label">Filter by</div>
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -1104,7 +1104,7 @@ body[data-theme="light"]::after { opacity: 0 !important; }
                         <span class="active-filter-badge" id="activeFilterBadge"><i data-lucide="filter" style="width:10px;height:10px;"></i><span id="activeFilterCount">0</span> active</span>
                     </div>
                 </div>
-                <div class="top-bar-actions">
+<div class="top-bar-actions" style="margin-top:18px;">
                     <button class="btn-export" onclick="openExportModal()"><i data-lucide="download"></i> Export Report</button>
                     <button class="btn-apply" onclick="openModal()" id="btnSaveMain"><i data-lucide="plus"></i> Record Leave</button>
                 </div>
