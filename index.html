@@ -191,7 +191,49 @@
             transition: opacity 0.15s ease; border: 1px solid var(--border);
             box-shadow: 0 8px 20px rgba(0,0,0,0.4); z-index: 100;
         }
-        .sidebar.collapsed .nav-item:hover::after { opacity: 1; }
+.sidebar.collapsed .nav-item:hover::after { opacity: 1; }
+
+/* ★ NEW: View-Only disabled nav items — tooltip works in BOTH collapsed and expanded states */
+.nav-item.view-disabled {
+    opacity: 0.4; cursor: not-allowed; pointer-events: auto;
+}
+.nav-item.view-disabled:hover { transform: none; background: rgba(128,128,128,0.04); color: var(--text-muted); }
+.nav-item.view-disabled::after {
+    content: attr(data-tooltip-disabled);
+    position: absolute; left: calc(100% + 14px); top: 50%; transform: translateY(-50%);
+    background: var(--card-bg); color: var(--text-main); padding: 6px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: opacity 0.15s ease; border: 1px solid var(--border);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4); z-index: 100;
+}
+.nav-item.view-disabled:hover::after { opacity: 1; }
+.sidebar.collapsed .nav-item.view-disabled::after { left: calc(100% + 14px); }
+
+/* ★ NEW: View-Only disabled top-bar buttons (Export Report / Record Leave) */
+button.view-disabled {
+    opacity: 0.4 !important; cursor: not-allowed !important; pointer-events: auto !important;
+    filter: grayscale(0.4);
+}
+button.view-disabled:hover { transform: none !important; box-shadow: none !important; }
+.view-disabled-tooltip-wrap { position: relative; display: inline-block; }
+.view-disabled-tooltip-wrap::after {
+    content: attr(data-tooltip-disabled);
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: var(--card-bg); color: var(--text-main); padding: 6px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: opacity 0.15s ease; border: 1px solid var(--border);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4); z-index: 100;
+}
+.view-disabled-tooltip-wrap:hover::after { opacity: 1; }
+
+/* ★ NEW: View Only session badge (sidebar identity widget) */
+.view-only-badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700;
+    background: rgba(245,158,11,0.15); color: #F59E0B; border: 1px solid rgba(245,158,11,0.3);
+    padding: 2px 7px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.4px;
+    margin-top: 3px; white-space: nowrap;
+}
+
 .nav-logout { margin-top: auto; }
 /* ===== User Profile Widget & Dropdown (restored) ===== */
 .user-profile-dropdown { position: relative; }
@@ -1021,8 +1063,8 @@ body[data-theme="light"]::after { opacity: 0 !important; }
             <div class="nav-item" id="nav-calendar" data-tooltip="Team Calendar" onclick="switchView('calendar', 48)"><span class="nav-icon"><i data-lucide="calendar-days"></i></span><span class="nav-label">Team Calendar</span></div>
             <div class="nav-item" id="nav-balance" data-tooltip="Leave Audit" onclick="switchView('balance', 96)"><span class="nav-icon"><i data-lucide="clipboard-check"></i></span><span class="nav-label">Leave Audit</span></div>
             <div class="nav-divider"></div>
-            <div class="nav-item" id="nav-manage" data-tooltip="Manage Team" onclick="openManageTeam()"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-label">Manage Team</span></div>
-            <div class="nav-item" id="nav-records" data-tooltip="Employee Record" onclick="switchView('records', 144)"><span class="nav-icon"><i data-lucide="users"></i></span><span class="nav-label">Employee Record</span></div>
+<div class="nav-item" id="nav-manage" data-tooltip="Manage Team" data-tooltip-disabled="Requires Full Access" onclick="handleNavManageTeamClick()"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-label">Manage Team</span></div>
+            <div class="nav-item" id="nav-records" data-tooltip="Employee Record" data-tooltip-disabled="Requires Full Access" onclick="handleNavRecordsClick()"><span class="nav-icon"><i data-lucide="users"></i></span><span class="nav-label">Employee Record</span></div>
                         <div class="nav-item" id="nav-holidays" data-tooltip="Holiday Config" onclick="openHolidayManager()"><span class="nav-icon"><i data-lucide="calendar-clock"></i></span><span class="nav-label">Holiday Config</span></div>
             <div class="nav-divider" id="navAdminDivider"></div>
 <div class="nav-item" id="nav-create-profile" data-tooltip="Manage Profiles" onclick="openManageProfiles()" style="display:none;"><span class="nav-icon"><i data-lucide="user-cog"></i></span><span class="nav-label">Manage Profiles</span></div>
@@ -1032,9 +1074,10 @@ body[data-theme="light"]::after { opacity: 0 !important; }
             <div class="user-profile-dropdown" id="userProfileDropdown">
                 <div class="user-identity-widget" id="userIdentityWidget" onclick="toggleUserDropdown()">
                     <div class="user-avatar-circle" id="userAvatarCircle">A</div>
-                    <div class="user-identity-info">
+ <div class="user-identity-info">
                         <div class="user-identity-name" id="userIdentityName">Profile</div>
                         <div class="user-identity-role" id="userIdentityRole">Member</div>
+                        <span class="view-only-badge" id="viewOnlyBadge" style="display:none;"><i data-lucide="eye" style="width:9px;height:9px;"></i> View Only</span>
                     </div>
                     <svg class="dropdown-chevron" id="dropdownChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </div>
@@ -1101,8 +1144,12 @@ body[data-theme="light"]::after { opacity: 0 !important; }
                     </div>
                 </div>
 <div class="top-bar-actions" style="margin-top:18px;">
-                    <button class="btn-export" onclick="openExportModal()"><i data-lucide="download"></i> Export Report</button>
-                    <button class="btn-apply" onclick="openModal()" id="btnSaveMain"><i data-lucide="plus"></i> Record Leave</button>
+                    <span class="view-disabled-tooltip-wrap" id="exportBtnWrap" data-tooltip-disabled="Requires Full Access">
+                        <button class="btn-export" onclick="handleExportClick()" id="btnExportReport"><i data-lucide="download"></i> Export Report</button>
+                    </span>
+                    <span class="view-disabled-tooltip-wrap" id="recordLeaveBtnWrap" data-tooltip-disabled="Requires Full Access">
+                        <button class="btn-apply" onclick="handleRecordLeaveClick()" id="btnSaveMain"><i data-lucide="plus"></i> Record Leave</button>
+                    </span>
                 </div>
             </div>
                 </div>
@@ -1298,8 +1345,9 @@ body[data-theme="light"]::after { opacity: 0 !important; }
                     <option value="">-- Add New Profile --</option>
                 </select>
             </div>
-            <div class="form-group"><label>Profile / Department Name</label><input type="text" id="mpProfileName" style="width:100%;" placeholder="e.g. Creative Team"></div>
+<div class="form-group"><label>Profile / Department Name</label><input type="text" id="mpProfileName" style="width:100%;" placeholder="e.g. Creative Team"></div>
             <div class="form-group"><label id="mpPasswordLabel">Password</label><input type="password" id="mpProfilePassword" style="width:100%;" placeholder="Set login password"></div>
+            <div class="form-group" id="mpViewOnlyGroup"><label id="mpViewOnlyLabel">View Only Password</label><input type="password" id="mpProfileViewOnlyPassword" style="width:100%;" placeholder="Set view-only login password"><div class="date-error" id="mpViewOnlyError" style="display:none;">View Only Password cannot be same as the profile password. Please use a different password.</div></div>
             <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;">
                 <button class="btn-danger" id="btnDeleteProfile" onclick="deleteProfile()" style="display:none;margin-right:auto;">Delete Profile</button>
                 <button onclick="closeModalAnimated(document.getElementById('manageProfilesModal'))" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:10px;border-radius:10px;cursor:pointer;">Cancel</button>
@@ -1571,8 +1619,51 @@ function setDefaultTeamData() {
     // ║  All feature functions MUST use these — never raw leaves[]       ║
     // ╚══════════════════════════════════════════════════════════════════╝
 
-    function isAdminProfile() {
+function isAdminProfile() {
         return currentProfile && (currentProfile.isAdmin === true);
+    }
+
+    // ★ NEW: Returns true only when the current session's accessLevel is 'view'
+    function isViewOnlySession() {
+        return !!(currentProfile && currentProfile.accessLevel === 'view');
+    }
+
+    // ★ NEW: Sidebar nav click guards — do nothing (besides a toast) for View Only sessions
+    function handleNavManageTeamClick() {
+        if (isViewOnlySession()) { showToast("View-only access — this action requires Full Access", "error"); return; }
+        openManageTeam();
+    }
+    function handleNavRecordsClick() {
+        if (isViewOnlySession()) { showToast("View-only access — this action requires Full Access", "error"); return; }
+        switchView('records', 144);
+    }
+    function handleExportClick() {
+        if (isViewOnlySession()) { showToast("View-only access — this action requires Full Access", "error"); return; }
+        openExportModal();
+    }
+    function handleRecordLeaveClick() {
+        if (isViewOnlySession()) { showToast("View-only access — this action requires Full Access", "error"); return; }
+        openModal();
+    }
+
+    // ★ NEW: Applies/removes the visual "disabled + tooltip" state on the 4 restricted controls
+    function applyAccessLevelUI() {
+        const viewOnly = isViewOnlySession();
+        const navManage  = document.getElementById('nav-manage');
+        const navRecords = document.getElementById('nav-records');
+        const btnExport   = document.getElementById('btnExportReport');
+        const btnRecord   = document.getElementById('btnSaveMain');
+        const exportWrap  = document.getElementById('exportBtnWrap');
+        const recordWrap  = document.getElementById('recordLeaveBtnWrap');
+        const badge       = document.getElementById('viewOnlyBadge');
+
+        if (navManage)  navManage.classList.toggle('view-disabled', viewOnly);
+        if (navRecords) navRecords.classList.toggle('view-disabled', viewOnly);
+        if (btnExport)  btnExport.classList.toggle('view-disabled', viewOnly);
+        if (btnRecord)  btnRecord.classList.toggle('view-disabled', viewOnly);
+        if (exportWrap) { if (!viewOnly) exportWrap.removeAttribute('data-tooltip-disabled-active'); }
+        if (recordWrap) { if (!viewOnly) recordWrap.removeAttribute('data-tooltip-disabled-active'); }
+        if (badge) badge.style.display = viewOnly ? 'inline-flex' : 'none';
     }
 
 function getProfileScopedLeaves() {
@@ -1721,6 +1812,7 @@ function getProfileSparklineData7Days(type) {
                     document.documentElement.classList.add('lm-authenticated');
                     document.getElementById('loginOverlay').classList.add('hidden');
                     applyRoleUI();
+                    applyAccessLevelUI();
                     return true;
                 }
             } catch(e) {
@@ -1853,12 +1945,19 @@ function applyRoleUI() {
         return;
     }
 
-    try {
+try {
         const hash = await hashPassword(password);
+        let matchedAccessLevel = null;
 
         if (hash === profile.password) {
+            matchedAccessLevel = 'full';
+        } else if (!profile.isAdmin && profile.viewOnlyPassword && hash === profile.viewOnlyPassword) {
+            matchedAccessLevel = 'view';
+        }
+
+        if (matchedAccessLevel) {
             // ── Credentials correct ──
-            currentProfile = { id: profile.id, name: profile.name, isAdmin: profile.isAdmin };
+            currentProfile = { id: profile.id, name: profile.name, isAdmin: profile.isAdmin, accessLevel: matchedAccessLevel };
             sessionStorage.setItem('lm_session', JSON.stringify(currentProfile));
             document.documentElement.classList.add('lm-authenticated');
 
@@ -1876,6 +1975,7 @@ function applyRoleUI() {
             if (_mc) _mc.style.display = 'flex';
 
             applyRoleUI();
+            applyAccessLevelUI();
             setGreeting();
             populateFilterDropdowns();
             await fetchCloudData();
@@ -2460,6 +2560,7 @@ function getSecurePassword() {
 
     // ★ FIX: Missing removeTeamMember function
 async function removeTeamMember() {
+        if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
         const name = document.getElementById('mtSelectExisting').value;
         if (!name) { showToast("Select a member to delete", "error"); return; }
         if (!confirm(`Delete "${name}" from the team?`)) return;
@@ -2506,7 +2607,8 @@ if (!await pushTeamToCloud()) return;
         showToast(`"${name}" removed from team`, "success");
     }
 
-	async function saveTeamMember() {
+async function saveTeamMember() {
+        if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
         const rawName=document.getElementById('mtName').value.trim(), agency=document.getElementById('mtAgency').value;
         if(!rawName){showToast("Name is required", "error");return;}
 
@@ -2677,6 +2779,11 @@ function loadProfileIntoForm() {
         const passInput = document.getElementById('mpProfilePassword');
         const deleteBtn = document.getElementById('btnDeleteProfile');
         const passLabel = document.getElementById('mpPasswordLabel');
+        const voGroup = document.getElementById('mpViewOnlyGroup');
+        const voInput = document.getElementById('mpProfileViewOnlyPassword');
+        const voLabel = document.getElementById('mpViewOnlyLabel');
+        const voError = document.getElementById('mpViewOnlyError');
+        if (voError) voError.style.display = 'none';
 
         if (selectedId) {
             const profile = profilesConfig.find(p => p.id === selectedId);
@@ -2693,6 +2800,11 @@ function loadProfileIntoForm() {
                     : 'New Password (leave blank to keep current)';
                 // ★ NEW: Never allow deleting the Admin profile
                 deleteBtn.style.display = profile.isAdmin ? 'none' : 'inline-flex';
+
+                // ★ NEW: View Only Password field — hidden entirely for Admin
+                if (voGroup) voGroup.style.display = profile.isAdmin ? 'none' : 'block';
+                if (voInput) { voInput.value = ''; voInput.placeholder = profile.viewOnlyPassword ? 'Leave blank to keep current view-only password' : 'Set view-only login password (required)'; }
+                if (voLabel) voLabel.textContent = profile.viewOnlyPassword ? 'View Only Password (leave blank to keep current)' : 'View Only Password (required)';
             }
         } else {
             nameInput.disabled = false;
@@ -2703,6 +2815,9 @@ function loadProfileIntoForm() {
             passInput.placeholder = 'Set login password';
             passLabel.textContent = 'Password';
             deleteBtn.style.display = 'none';
+            if (voGroup) voGroup.style.display = 'block';
+            if (voInput) { voInput.value = ''; voInput.placeholder = 'Set view-only login password (required)'; }
+            if (voLabel) voLabel.textContent = 'View Only Password (required)';
         }
     }
 
@@ -2710,6 +2825,9 @@ async function saveProfileChanges() {
         const selectedId = document.getElementById('mpSelectExisting').value;
         const name = document.getElementById('mpProfileName').value.trim();
         const password = document.getElementById('mpProfilePassword').value;
+        const viewOnlyPassword = document.getElementById('mpProfileViewOnlyPassword') ? document.getElementById('mpProfileViewOnlyPassword').value : '';
+        const voError = document.getElementById('mpViewOnlyError');
+        if (voError) voError.style.display = 'none';
 
         if (!name) { showToast("Profile name is required", "error"); return; }
 
@@ -2718,17 +2836,42 @@ async function saveProfileChanges() {
         if (selectedId) {
             const profile = profilesConfig.find(p => p.id === selectedId);
             if (profile) {
-                // ★ NEW: Special branch for Admin — password-only update, no renaming/ID change
+                // ★ NEW: Special branch for Admin — password-only update, no renaming/ID change, no View Only concept
                 if (profile.isAdmin) {
                     if (!password) { showToast("Enter a new password to update Admin credentials", "error"); return; }
                     profile.password = await hashPassword(password);
                 } else {
+                    // ★ NEW: Determine the effective Full Access password (new if provided, else existing) for collision check
+                    const effectiveFullHash = password ? await hashPassword(password) : profile.password;
+                    // ★ NEW: View Only Password is mandatory — must exist already OR be provided now
+                    if (!viewOnlyPassword && !profile.viewOnlyPassword) {
+                        showToast("View Only Password is required for every profile", "error"); return;
+                    }
+                    let effectiveViewOnlyHash = profile.viewOnlyPassword;
+                    if (viewOnlyPassword) {
+                        effectiveViewOnlyHash = await hashPassword(viewOnlyPassword);
+                        // ★ NEW: Collision check — View Only Password cannot equal Full Access password
+                        if (effectiveViewOnlyHash === effectiveFullHash) {
+                            if (voError) voError.style.display = 'block';
+                            showToast("View Only Password cannot be same as profile password", "error");
+                            return;
+                        }
+                    } else {
+                        // No new View Only password entered — still verify existing one doesn't collide with a NEW full password
+                        if (password && effectiveViewOnlyHash === effectiveFullHash) {
+                            if (voError) voError.style.display = 'block';
+                            showToast("View Only Password cannot be same as new profile password. Please set a new View Only Password.", "error");
+                            return;
+                        }
+                    }
+
                     const oldName = profile.name;
                     profile.name = name;
                     profile.id = newId;
                     if (password) {
                         profile.password = await hashPassword(password);
                     }
+                    profile.viewOnlyPassword = effectiveViewOnlyHash;
                     // Rename key in teamData if name changed
                     if (oldName !== name && teamData.profiles[oldName]) {
                         teamData.profiles[name] = teamData.profiles[oldName];
@@ -2741,9 +2884,16 @@ async function saveProfileChanges() {
                 showToast("A profile with this name already exists", "error"); return;
             }
             if (!password) { showToast("Password is required for new profiles", "error"); return; }
+            if (!viewOnlyPassword) { showToast("View Only Password is required for new profiles", "error"); return; }
 
             const hashedPass = await hashPassword(password);
-            profilesConfig.push({ id: newId, name: name, password: hashedPass, isAdmin: false });
+            const hashedViewOnlyPass = await hashPassword(viewOnlyPassword);
+            if (hashedViewOnlyPass === hashedPass) {
+                if (voError) voError.style.display = 'block';
+                showToast("View Only Password cannot be same as profile password", "error");
+                return;
+            }
+            profilesConfig.push({ id: newId, name: name, password: hashedPass, viewOnlyPassword: hashedViewOnlyPass, isAdmin: false });
 
             if (!teamData.profiles[name]) {
                 teamData.profiles[name] = { agencyData: { "INI": [], "UM": [] }, employeeDataDict: {} };
@@ -2825,7 +2975,8 @@ async function saveProfileChanges() {
         lucide.createIcons({ nameAttr: 'data-lucide' });
     }
 
-    function exportEmployeeRecords() {
+function exportEmployeeRecords() {
+        if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
         const allEmps = getProfileScopedEmployees();
         const headers = ['Name', 'Employee ID', 'Job Title', 'Email ID', 'Cluster No.', 'Reporting Manager', 'Craft', 'Agency', 'Market', 'Status'];
         const rows = [headers];
@@ -2840,7 +2991,8 @@ async function saveProfileChanges() {
         const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Employee Details"); XLSX.writeFile(wb, "Employee_Details.xlsx");
     }
 
-    async function processExport() {
+async function processExport() {
+        if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
         const btn=document.getElementById('btnProcessExport'); btn.innerHTML='<i data-lucide="download"></i> Processing...'; lucide.createIcons({nameAttr:'data-lucide'});
         try{
             const fromD=document.getElementById('expFrom').value,toD=document.getElementById('expTo').value,selEmps=Array.from(document.getElementById('expEmpName').selectedOptions).map(o=>o.value);
@@ -2943,7 +3095,7 @@ row+=`<td class="${cls}${tc}" style="${is}" onmouseover="showDetails(event,'${tt
         for(let i=0;i<pad;i++)g.innerHTML+='<div></div>';
          for(let d=1;d<=days;d++){const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hol=holidays[ds];const todayCls=d===todayDay?'today-cell':'';
         let h=`<span class="day-number">${d}</span>`;if(hol){const isOpt=hol.type==='Optional';h+=`<span class="holiday-pill ${isOpt?'holiday-pill-optional':'holiday-pill-fixed'}">${isOpt?'Opt: ':''}${hol.name}</span>`;}
-if(!isExcludedDate(ds)){getProfileScopedLeaves().forEach(l=>{if(ds>=l.start&&ds<=l.end&&applyFilters(l.emp)){let ht=l.dayType==='Half Day'?`${l.type} Half day`:l.type,dn=l.dayType==='Half Day'?`${l.emp} (\u00BD)`:l.emp;const isTodayLeave=ds===todayStr?' today-leave-badge':'';h+=`<div class="leave-badge ${getBadgeClass(l.type)}${isTodayLeave}" onclick="editLeave('${l.id}','${ds}')" onmouseover="showDetails(event,'${ht}')" onmouseout="hideDetails()">${dn}</div>`;}});}
+if(!isExcludedDate(ds)){getProfileScopedLeaves().forEach(l=>{if(ds>=l.start&&ds<=l.end&&applyFilters(l.emp)){let ht=l.dayType==='Half Day'?`${l.type} Half day`:l.type,dn=l.dayType==='Half Day'?`${l.emp} (\u00BD)`:l.emp;const isTodayLeave=ds===todayStr?' today-leave-badge':'';const clickAttr=isViewOnlySession()?'':` onclick="editLeave('${l.id}','${ds}')"`;h+=`<div class="leave-badge ${getBadgeClass(l.type)}${isTodayLeave}"${clickAttr} onmouseover="showDetails(event,'${ht}')" onmouseout="hideDetails()">${dn}</div>`;}});}
         g.innerHTML+=`<div class="day-cell ${todayCls} ${hol?(hol.type==='Optional'?'grid-holiday-cell-optional':'grid-holiday-cell'):''}">${h}</div>`;}
     }
 
@@ -3221,7 +3373,8 @@ function getEmployeeProfile(empName) {
         finally{document.getElementById('btnSaveMain').innerHTML='<i data-lucide="plus"></i> Record Leave'; lucide.createIcons({nameAttr:'data-lucide'});}
     }
 
- async function saveLeave(){
+async function saveLeave(){
+    if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
     if(!document.getElementById('modalAgency').value||!document.getElementById('empName').value){showToast("Please select Agency and Team Member", "error");return;}
     const sV=document.getElementById('startDate').value,eV=document.getElementById('endDate').value;
     if(sV&&eV&&eV<sV){document.getElementById('dateError').style.display='block';showToast("End Date cannot be before Start Date", "error");return;}
@@ -3263,6 +3416,7 @@ const id=document.getElementById('editId').value;
     if(await pushLeavesToCloud()){closeModal();refresh();}
 }
 async function deleteLeave(){
+        if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
         if(!confirm("Delete this record?"))return;
         // ★ SECURITY FIX: Authenticate BEFORE removing the record
         const pass = await getSecurePassword();
@@ -3340,6 +3494,7 @@ async function deleteLeave(){
         document.getElementById('commitBtn').style.display = 'inline-flex';
     }
 async function confirmDeleteNow() {
+        if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
         clearTimeout(window._deleteRevertTimer);
 
         // ★ SECURITY FIX: Authenticate BEFORE removing the record.
@@ -3570,6 +3725,7 @@ function updateActiveFilterBadge() {
 
             initCardShine();
             updateUserIdentityWidget();
+            applyAccessLevelUI();
             refresh();
 
             // Hide loading overlay after everything is rendered
