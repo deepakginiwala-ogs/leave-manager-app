@@ -2601,145 +2601,163 @@ if (!await pushTeamToCloud()) return;
     }
 
 async function saveTeamMember() {
-        if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
-        const rawName=document.getElementById('mtName').value.trim(), agency=document.getElementById('mtAgency').value;
-        if(!rawName){showToast("Name is required", "error");return;}
+ if(isViewOnlySession()){showToast("View-only access — this action requires Full Access", "error");return;}
+ const rawName=document.getElementById('mtName').value.trim(), agency=document.getElementById('mtAgency').value;
+ if(!rawName){showToast("Name is required", "error");return;}
+ const name = formatEmployeeField('Name', rawName);
+ const prev=document.getElementById('mtSelectExisting').value;
 
-        const name = formatEmployeeField('Name', rawName);
-        const prev=document.getElementById('mtSelectExisting').value;
+ // === Determine source and target profile (Admin transfer logic) ===
+ let oldAgency = null;
+ let sourceProfileName = null;
+ let targetProfileName = null;
+ let isTransfer = false;
 
-        // === BIDIRECTIONAL SYNC: Capture old data before modification ===
-        let oldAgency = null;
-        let targetProfileName = null;
+ if (prev) {
+ oldAgency = getAgency(prev);
+ sourceProfileName = getEmployeeProfile(prev);
+ const profileAssignEl = document.getElementById('mtProfileAssign');
+ const profileAssignVal = profileAssignEl ? profileAssignEl.value : '';
+ if (currentProfile && currentProfile.isAdmin && profileAssignVal) {
+ targetProfileName = profileAssignVal;
+ } else {
+ // ★ FIX: "-- Auto Detect --" left blank OR non-admin — keep employee in current profile
+ targetProfileName = sourceProfileName;
+ }
+ isTransfer = currentProfile && currentProfile.isAdmin && sourceProfileName && sourceProfileName !== 'Unknown' && targetProfileName && targetProfileName !== sourceProfileName;
+ } else {
+ // New employee - check if Admin selected a profile assignment
+ const profileAssign = document.getElementById('mtProfileAssign') ? document.getElementById('mtProfileAssign').value : '';
+ if (currentProfile && currentProfile.isAdmin && profileAssign) {
+ targetProfileName = profileAssign;
+ } else if (currentProfile && !currentProfile.isAdmin) {
+ targetProfileName = currentProfile.name;
+ } else {
+ const nonAdminProfiles = profilesConfig.filter(p => !p.isAdmin);
+ targetProfileName = nonAdminProfiles.length ? nonAdminProfiles[0].name : 'Unknown';
+ }
+ }
 
-        if (prev) {
-            oldAgency = getAgency(prev);
-            // Find which profile this employee belongs to (use prev name for lookup)
-            targetProfileName = getEmployeeProfile(prev);
-        } else {
-            // New employee - check if Admin selected a profile assignment
-            const profileAssign = document.getElementById('mtProfileAssign') ? document.getElementById('mtProfileAssign').value : '';
-            if (currentProfile && currentProfile.isAdmin && profileAssign) {
-                targetProfileName = profileAssign;
-            } else if (currentProfile && !currentProfile.isAdmin) {
-                targetProfileName = currentProfile.name;
-            } else {
-                // Admin adding new employee without profile selection - auto-detect first non-admin profile
-                const nonAdminProfiles = profilesConfig.filter(p => !p.isAdmin);
-                targetProfileName = nonAdminProfiles.length ? nonAdminProfiles[0].name : 'Unknown';
-            }
-        }
+ // ★ NEW: Block transfer if target profile already has a DIFFERENT employee with the same name
+ if (isTransfer && teamData.profiles[targetProfileName] && teamData.profiles[targetProfileName].employeeDataDict && teamData.profiles[targetProfileName].employeeDataDict[name]) {
+ showToast(`"${name}" already exists in "${targetProfileName}". Please resolve the naming conflict before transferring.`, "error");
+ return;
+ }
 
-        // === Handle employee rename ===
-if(prev && prev !== name){
-            // Update global agencyData arrays
-            if(agencyData.INI.includes(prev)) agencyData.INI = agencyData.INI.filter(n=>n!==prev);
-            if(agencyData.UM.includes(prev)) agencyData.UM = agencyData.UM.filter(n=>n!==prev);
-            if(agencyData.NA && agencyData.NA.includes(prev)) agencyData.NA = agencyData.NA.filter(n=>n!==prev);
-            // Remove old employeeDataDict entry
-            delete employeeDataDict[prev];
-            // Update all leave records referencing old name
-            leaves = leaves.map(l => l.emp === prev ? {...l, emp: name} : l);
-        }
+ // === Handle employee rename ===
+ if(prev && prev !== name){
+ if(agencyData.INI.includes(prev)) agencyData.INI = agencyData.INI.filter(n=>n!==prev);
+ if(agencyData.UM.includes(prev)) agencyData.UM = agencyData.UM.filter(n=>n!==prev);
+ if(agencyData.NA && agencyData.NA.includes(prev)) agencyData.NA = agencyData.NA.filter(n=>n!==prev);
+ delete employeeDataDict[prev];
+ leaves = leaves.map(l => l.emp === prev ? {...l, emp: name} : l);
+ }
 
-        // === Create/Update employee data ===
-        employeeDataDict[name] = {
-            "Name": name, "Employee ID": document.getElementById('mtId').value.trim(),
-            "Job Title": formatEmployeeField('Job Title', document.getElementById('mtJob').value),
-            "Email ID": formatEmployeeField('Email ID', document.getElementById('mtEmail').value),
-            "Cluster No.": document.getElementById('mtClusterNo').value.trim(),
-            "Reporting Manager": formatEmployeeField('Reporting Manager', document.getElementById('mtClusterLead').value),
-            "Craft": formatEmployeeField('Craft', document.getElementById('mtCraft').value),
-            "Agency": agency, "Market": formatEmployeeField('Market', document.getElementById('mtMarket').value)
-        };
+ // === Create/Update employee data ===
+ employeeDataDict[name] = {
+ "Name": name, "Employee ID": document.getElementById('mtId').value.trim(),
+ "Job Title": formatEmployeeField('Job Title', document.getElementById('mtJob').value),
+ "Email ID": formatEmployeeField('Email ID', document.getElementById('mtEmail').value),
+ "Cluster No.": document.getElementById('mtClusterNo').value.trim(),
+ "Reporting Manager": formatEmployeeField('Reporting Manager', document.getElementById('mtClusterLead').value),
+ "Craft": formatEmployeeField('Craft', document.getElementById('mtCraft').value),
+ "Agency": agency, "Market": formatEmployeeField('Market', document.getElementById('mtMarket').value)
+ };
 
-	// Add to global agencyData if not already there
-        if(!agencyData.INI.includes(name) && !agencyData.UM.includes(name) && !(agencyData.NA && agencyData.NA.includes(name))){
-            if(agencyData[agency]) { agencyData[agency].push(name); agencyData[agency].sort(); }
-        }
+ if(!agencyData.INI.includes(name) && !agencyData.UM.includes(name) && !(agencyData.NA && agencyData.NA.includes(name))){
+ if(agencyData[agency]) { agencyData[agency].push(name); agencyData[agency].sort(); }
+ }
 
-        // Handle agency change for existing employee (same name, different agency)
-        if(prev && prev === name){
-            if(oldAgency && oldAgency !== agency && oldAgency !== "All"){
-                agencyData[oldAgency] = agencyData[oldAgency].filter(n=>n!==name);
-                if(!agencyData[agency].includes(name)){ agencyData[agency].push(name); agencyData[agency].sort(); }
-            }
-        }
+ if(prev && prev === name){
+ if(oldAgency && oldAgency !== agency && oldAgency !== "All"){
+ agencyData[oldAgency] = agencyData[oldAgency].filter(n=>n!==name);
+ if(!agencyData[agency].includes(name)){ agencyData[agency].push(name); agencyData[agency].sort(); }
+ }
+ }
 
-        // === BIDIRECTIONAL SYNC: Push changes back to the correct scoped profile ===
-        if (currentProfile && !currentProfile.isAdmin) {
-            // Department profile: sync its own data directly
-            if (teamData.profiles[currentProfile.name]) {
-                teamData.profiles[currentProfile.name].agencyData = JSON.parse(JSON.stringify(agencyData));
-                teamData.profiles[currentProfile.name].employeeDataDict = JSON.parse(JSON.stringify(employeeDataDict));
-            }
-        } else if (currentProfile && currentProfile.isAdmin) {
-            // Admin editing: Only update the SPECIFIC employee in the SPECIFIC profile
-            // Do NOT assign the global merged data to a single profile
-            if (targetProfileName && targetProfileName !== 'Unknown' && teamData.profiles[targetProfileName]) {
-                const pData = teamData.profiles[targetProfileName];
+ // === Sync changes to the correct scoped profile(s) ===
+ if (currentProfile && !currentProfile.isAdmin) {
+ if (teamData.profiles[currentProfile.name]) {
+ teamData.profiles[currentProfile.name].agencyData = JSON.parse(JSON.stringify(agencyData));
+ teamData.profiles[currentProfile.name].employeeDataDict = JSON.parse(JSON.stringify(employeeDataDict));
+ }
+ } else if (currentProfile && currentProfile.isAdmin) {
 
-                // Ensure agencyData structure exists
-                if (!pData.agencyData) pData.agencyData = { "INI": [], "UM": [], "NA": [] };
-                if (!pData.agencyData.INI) pData.agencyData.INI = [];
-                if (!pData.agencyData.UM) pData.agencyData.UM = [];
-                if (!pData.agencyData.NA) pData.agencyData.NA = [];
-                if (!pData.employeeDataDict) pData.employeeDataDict = {};
+ // ★ NEW: If this is a genuine transfer, first fully remove the employee from the SOURCE profile
+ if (isTransfer && teamData.profiles[sourceProfileName]) {
+ const srcData = teamData.profiles[sourceProfileName];
+ if (srcData.employeeDataDict) delete srcData.employeeDataDict[prev];
+ if (srcData.agencyData) {
+ for (const ag in srcData.agencyData) {
+ srcData.agencyData[ag] = (srcData.agencyData[ag] || []).filter(n => n !== prev);
+ }
+ }
+ }
 
-                // If employee was renamed, remove old entry from profile
-                if (prev && prev !== name) {
-                    delete pData.employeeDataDict[prev];
-                    // Remove old name from profile's agency arrays
-                    for (const ag in pData.agencyData) {
-                        pData.agencyData[ag] = pData.agencyData[ag].filter(n => n !== prev);
-                    }
-                }
+ if (targetProfileName && targetProfileName !== 'Unknown' && teamData.profiles[targetProfileName]) {
+ const pData = teamData.profiles[targetProfileName];
+ if (!pData.agencyData) pData.agencyData = { "INI": [], "UM": [], "NA": [] };
+ if (!pData.agencyData.INI) pData.agencyData.INI = [];
+ if (!pData.agencyData.UM) pData.agencyData.UM = [];
+ if (!pData.agencyData.NA) pData.agencyData.NA = [];
+ if (!pData.employeeDataDict) pData.employeeDataDict = {};
 
-                // Update/create the employee entry in the profile's dict
-                pData.employeeDataDict[name] = JSON.parse(JSON.stringify(employeeDataDict[name]));
+ // If renamed within the SAME profile (not a transfer), remove old entry
+ if (!isTransfer && prev && prev !== name) {
+ delete pData.employeeDataDict[prev];
+ for (const ag in pData.agencyData) {
+ pData.agencyData[ag] = pData.agencyData[ag].filter(n => n !== prev);
+ }
+ }
 
-                // Handle agency change: remove from old agency in profile, add to new
-                if (prev && prev === name && oldAgency && oldAgency !== agency && oldAgency !== "All") {
-                    pData.agencyData[oldAgency] = (pData.agencyData[oldAgency] || []).filter(n => n !== name);
-                }
-                // Add to new agency in profile
-                if (agency && pData.agencyData[agency] && !pData.agencyData[agency].includes(name)) {
-                    pData.agencyData[agency].push(name);
-                    pData.agencyData[agency].sort();
-                }
+ pData.employeeDataDict[name] = JSON.parse(JSON.stringify(employeeDataDict[name]));
 
-                // For new employees, add to profile's agency and dict
-                if (!prev) {
-                    if (agency && pData.agencyData[agency] && !pData.agencyData[agency].includes(name)) {
-                        pData.agencyData[agency].push(name);
-                        pData.agencyData[agency].sort();
-                    }
-                }
-            }
-        }
+ if (prev && prev === name && oldAgency && oldAgency !== agency && oldAgency !== "All" && !isTransfer) {
+ pData.agencyData[oldAgency] = (pData.agencyData[oldAgency] || []).filter(n => n !== name);
+ }
 
-        // === Also sync leaves to cloud if employee was renamed ===
-        if (prev && prev !== name) {
-            try {
-                let leavesSha = null;
-                const gf = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`);
-                if (gf.ok) { const fd = await gf.json(); leavesSha = fd.sha; }
-                if (leavesSha) {
-                    const leavesContent = btoa(unescape(encodeURIComponent(JSON.stringify({leaves}, null, 2))));
-                    await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
-                        method: 'PUT', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ message: "Renamed employee: " + prev + " -> " + name, content: leavesContent, sha: leavesSha })
-                    });
-                }
-            } catch(e) { console.error("Leave sync on rename failed", e); }
-        }
+ if (agency && pData.agencyData[agency] && !pData.agencyData[agency].includes(name)) {
+ pData.agencyData[agency].push(name);
+ pData.agencyData[agency].sort();
+ }
+ }
+ }
 
-	if (!await pushTeamToCloud()) return;
-        populateManageDropdown();
-        document.getElementById('mtSelectExisting').value = '';
-        loadMemberIntoForm();
-        updateFilterDropdowns(); refresh();
-    }
+ // ★ NEW: Full migration — re-tag EVERY historical leave record for this employee to the new profile
+ if (isTransfer) {
+ leaves = leaves.map(l => l.emp === name ? { ...l, profile: targetProfileName } : l);
+ }
+
+ // === Sync leaves to cloud if renamed OR transferred ===
+ if ((prev && prev !== name) || isTransfer) {
+ try {
+ let leavesSha = null;
+ const gf = await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`);
+ if (gf.ok) { const fd = await gf.json(); leavesSha = fd.sha; }
+ if (leavesSha) {
+ const leavesContent = btoa(unescape(encodeURIComponent(JSON.stringify({leaves}, null, 2))));
+ await fetch(`${WORKER_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
+ method: 'PUT', headers: {'Content-Type': 'application/json'},
+ body: JSON.stringify({ message: isTransfer ? ("Transferred employee: " + name + " -> " + targetProfileName) : ("Renamed employee: " + prev + " -> " + name), content: leavesContent, sha: leavesSha })
+ });
+ }
+ } catch(e) { console.error("Leave sync on rename/transfer failed", e); }
+ }
+
+ if (!await pushTeamToCloud()) return;
+
+ // ★ NEW: After a successful transfer, auto-switch Admin's Profile filter to the target profile
+ if (isTransfer) {
+ adminProfileFilter = targetProfileName;
+ populateProfileFilterDropdown();
+ showToast(`"${name}" moved to "${targetProfileName}" — all leave history transferred`, "success");
+ }
+
+ populateManageDropdown();
+ document.getElementById('mtSelectExisting').value = '';
+ loadMemberIntoForm();
+ updateFilterDropdowns(); refresh();
+}
 
     // ===== MANAGE PROFILES FUNCTIONS (Missing — now added) =====
 
